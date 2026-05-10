@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/laucher_icon_img/F.png" alt="Finzo logo" width="80"/>
+<img src="assets/laucher_icon_img/In use/Finzo Logo.png" alt="Finzo logo" width="80"/>
 
 <br/>
 
