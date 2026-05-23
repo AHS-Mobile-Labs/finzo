@@ -1,152 +1,167 @@
 <div align="center">
 
-<img src="assets/laucher_icon_img/F.png" alt="Finzo logo" width="80"/>
+<img src="assets/laucher_icon_img/In use/Finzo Logo.png" alt="Finzo logo" width="100"/>
 
-<br/>
+# Finzo
+**Private Finance, Beautifully Offline**
 
-<h1>AHS Mobile Labs</h1>
+Track spending, accounts, budgets, loans, credit cards, and investments in one beautiful local finance book.
 
-**Building Privacy-Focused Mobile Solutions**
-
-[![GitHub](https://img.shields.io/badge/GitHub-@ahsmobilelabs-black?logo=github)](https://github.com/ahsmobilelabs)
-[![Instagram](https://img.shields.io/badge/Instagram-@ahsmobilelabs-E4405F?logo=instagram)](https://instagram.com/ahsmobilelabs)
-[![YouTube](https://img.shields.io/badge/YouTube-@AHSMobileLabs-FF0000?logo=youtube)](https://www.youtube.com/@AHSMobileLabs)
-[![Linktree](https://img.shields.io/badge/Linktree-ahsmobilelabs-39E09B)](https://linktr.ee/ahsmobilelabs)
-
-<br/>
-
-
+[![Flutter](https://img.shields.io/badge/Flutter-3.0%2B-02569B?logo=flutter)](https://flutter.dev)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-AHS%20Mobile%20Labs-blue?logo=github)](https://github.com/AHS-Mobile-Labs)
 
 </div>
 
-<br/>
+## About Finzo
 
-## Welcome to AHS Mobile Labs 👋
+Finzo is a comprehensive personal finance management application designed with privacy and offline-first principles. It helps you gain complete control over your financial life without relying on cloud services or compromising your privacy.
 
-We are a mobile development studio focused on creating **privacy-first, offline-capable applications** for Android and iOS. Our mission is to empower users with tools that prioritize data security, transparency, and control.
+Finzo helps you track spending, accounts, budgets, loans, credit cards, and investments in one local finance book. It is designed for quick daily entry and clear monthly decisions.
 
-All our projects are **open-source** and built with **Flutter** and **Dart** for maximum code reuse and maintainability.
+## 🎯 Core Principles
 
----
+- **Offline First** - Your finance book stays local and available anytime, anywhere
+- **Privacy Focused** - No cloud account is required for everyday tracking
+- **Decision Ready** - Dashboards, budgets, loans, cards, and investments stay connected
 
-## 🚀 Featured Projects
+## ✨ Features
 
-### Finzo — Personal Finance Manager
-**An offline, open-source finance app that puts your data in your hands.**
+### Built For
+- 💳 **Accounts** - Manage multiple bank accounts and digital wallets
+- 🔄 **Transfers** - Track money movements between accounts
+- 📊 **Budgets** - Set and monitor spending budgets by category
+- 📈 **Analytics** - View detailed financial insights and trends
+- 💰 **Credit Cards** - Track card balances and payments
+- 📈 **Investing** - Monitor investment portfolio and returns
+- 🏦 **Loans** - Keep track of loans and repayment schedules
 
-Finzo is a comprehensive personal finance solution built entirely in Flutter. Manage budgets, track investments, monitor loans, and organize spending—all without connecting to the internet. Your financial data never leaves your device.
+### Key Capabilities
+- Quick daily transaction entry with intuitive UI
+- Offline functionality with local SQLite database
+- Multiple currency support
+- Category-based expense tracking
+- Interactive charts and dashboards
+- Encrypted local data storage
 
-**Key Features:**
-- 📊 **Dashboard** — Net balance, income vs expense overview, recent transactions
-- 💰 **Transactions** — Income/expense tracking with smart categorization
-- 🎯 **Budgets** — Monthly budgets with spending progress and alerts
-- 💳 **Credit Cards** — Track limits, utilization, billing dates
-- 🏦 **Loans & EMI** — 8 loan types with automatic EMI tracking
-- 📈 **Investments** — 9 asset types (stocks, crypto, mutual funds, PPF, etc.)
-- 💼 **Multi-Account** — Color-coded wallet and bank account management
-- 📉 **Reports** — Interactive charts and financial trends
-- 🌍 **Multi-Currency** — 15+ currencies with proper locale formatting
-- ✈️ **Works Offline** — No internet required, ever. Everything runs locally.
+## 📱 Platform Support
 
-**Technology Stack:**
-- Flutter (Android, iOS)
-- SQLite via sqflite
-- Provider for state management
-- fl_chart for visualizations
-- Google Fonts (Poppins)
+- ✅ Android 5.0+
+- ✅ iOS 11.0+
+- ✅ Web (experimental)
+- ✅ Windows (experimental)
+- ✅ macOS (experimental)
+- ✅ Linux (experimental)
 
-**Get Finzo:**
-- 📱 [Download Latest Release](https://github.com/ahsmobilelabs/finzo/releases)
-- 📖 [View on GitHub](https://github.com/ahsmobilelabs/finzo)
+## 🚀 Getting Started
 
----
+### Prerequisites
 
-## 🛠 Tech Stack
-
-We specialize in:
-
-| Area | Tools |
-|------|-------|
-| **Mobile Frameworks** | Flutter, Dart |
-| **Platforms** | Android |
-| **State Management** | Provider, Riverpod |
-| **Databases** | SQLite, Hive, Firebase (when needed) |
-| **UI/UX** | Material Design, Custom animations |
-| **Privacy** | On-device processing, encrypted storage |
-
----
-
-## 🤝 Connect With Us
-
-- **Email:** [ahsmobilelabs@gmail.com](mailto:ahsmobilelabs@gmail.com)
-- **GitHub:** [@ahsmobilelabs](https://github.com/ahsmobilelabs)
-- **Instagram:** [@ahsmobilelabs](https://instagram.com/ahsmobilelabs)
-- **YouTube:** [@AHSMobileLabs](https://www.youtube.com/@AHSMobileLabs)
-- **X (Twitter):** [@ahsmobilelabs](https://twitter.com/ahsmobilelabs)
-- **Linktree:** [linktr.ee/ahsmobilelabs](https://linktr.ee/ahsmobilelabs)
-
----
-
-## 📦 Getting Started with Finzo
+- Flutter 3.0 or higher
+- Dart 3.0 or higher
+- Android SDK (for Android builds)
+- Xcode (for iOS builds on macOS)
 
 ### Installation
 
-Download from the [releases page](https://github.com/ahsmobilelabs/finzo/releases) or build from source:
-
+1. **Clone the repository**
 ```bash
-git clone https://github.com/ahsmobilelabs/finzo.git
+git clone https://github.com/AHS-Mobile-Labs/finzo.git
 cd finzo
+```
+
+2. **Get dependencies**
+```bash
 flutter pub get
+```
+
+3. **Run the app**
+```bash
 flutter run
 ```
 
-**Requirements:** Flutter SDK with Dart `^3.11.1`
+### Build for Production
 
-### Data & Storage
+**Android APK:**
+```bash
+flutter build apk --release
+```
 
-Finance books are stored locally:
+**Android App Bundle:**
+```bash
+flutter build appbundle --release
+```
 
-| Platform | Path |
-|----------|------|
-| Android | `/storage/emulated/0/Documents/finzo/` |
-| iOS | App Documents/finzo/ |
+**iOS:**
+```bash
+flutter build ios --release
+```
 
-Each book is a portable `.books.db` SQLite file — back up, share, or import anytime.
+## 📁 Project Structure
 
----
+```
+finzo/
+├── lib/
+│   ├── main.dart              # Application entry point
+│   ├── models/                # Data models (Account, Budget, Transaction, etc.)
+│   ├── providers/             # State management (FinanceProvider)
+│   ├── screens/               # UI screens
+│   ├── services/              # Business logic services
+│   ├── utils/                 # Utilities and helpers
+│   └── widgets/               # Reusable UI components
+├── android/                   # Android native code
+├── ios/                       # iOS native code
+├── assets/                    # Images and resources
+├── pubspec.yaml              # Flutter dependencies
+└── README.md                 # This file
+```
 
-## 🤗 Contributing
+## 🛠 Technologies & Dependencies
 
-We love contributions! Here's how:
+- **State Management**: Provider
+- **Database**: SQLite (sqflite)
+- **UI Animations**: flutter_animate
+- **File Handling**: file_picker
+- **URL Handling**: url_launcher
+- **Permissions**: permission_handler
+- **Path Management**: path_provider
 
-1. 🐛 [Report bugs or suggest features](https://github.com/ahsmobilelabs/finzo/issues)
-2. 🍴 Fork the repository
-3. 🌿 Create a feature branch
-4. 💾 Commit your changes
-5. 🚀 Push and open a pull request
+## 📖 Documentation
 
----
+For more information about Finzo features and usage, visit our [GitHub Wiki](https://github.com/AHS-Mobile-Labs/finzo/wiki).
 
-## 📜 License
+## 🤝 Contributing
 
-All projects are licensed under the [MIT License](LICENSE) — feel free to use, modify, and distribute.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
----
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 📈 Support
+## 📞 Connect With Us
 
-If you love our work:
-- ⭐ Star our repos on GitHub
-- 📢 Share with friends and colleagues
-- 💬 Follow us on social media
-- 🎁 Consider supporting our development
+Stay updated and connected with AHS Mobile Labs:
+
+- 📧 **Email**: [ahsmobilelabs@gmail.com](mailto:ahsmobilelabs@gmail.com)
+- 🔗 **Linktree**: [linktr.ee/ahsmobilelabs](https://linktr.ee/ahsmobilelabs)
+- 💻 **GitHub**: [@AHS-Mobile-Labs](https://github.com/AHS-Mobile-Labs)
+- 📸 **Instagram**: [@ahsmobilelabs](https://www.instagram.com/ahsmobilelabs)
+- 🎥 **YouTube**: [@AHSMobileLabs](https://www.youtube.com/@AHSMobileLabs)
+- 𝕏 **X (Twitter)**: [@ahsmobilelabs](https://x.com/ahsmobilelabs)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
-**Built with passion for privacy, transparency, and open-source principles.**
+**Made with ❤️ by AHS Mobile Labs**
 
-Made by AHS Mobile Labs | 2024-2026
+[⬆ back to top](#finzo)
 
 </div>
+
