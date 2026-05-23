@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/credit_card_model.dart';
 import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
 
 class CreditCardsScreen extends StatelessWidget {
@@ -18,15 +19,27 @@ class CreditCardsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Credit Cards')),
       body: cards.isEmpty
-          ? Center(
+          ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('💳', style: TextStyle(fontSize: 64)),
-                  const SizedBox(height: 16),
+                  Icon(
+                    Icons.credit_card_rounded,
+                    size: 64,
+                    color: Colors.white54,
+                  ),
+                  SizedBox(height: 16),
                   Text(
-                    'No credit cards added yet',
+                    'Add your first credit card',
                     style: TextStyle(color: Colors.white54, fontSize: 16),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Start with card name and limit.',
+                    style: TextStyle(
+                      color: AppTheme.mutedTextColor,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -53,6 +66,7 @@ class CreditCardsScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      requestFocus: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddCardSheet(existing: existing),
     );
@@ -76,7 +90,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF3B82F6)],
+          colors: [Color(0xFF5B47F2), AppTheme.primaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -122,7 +136,7 @@ class _SummaryCard extends StatelessWidget {
               _SummaryItem(
                 label: 'Available',
                 value: Formatters.currency(totalAvailable),
-                color: Colors.greenAccent,
+                color: AppTheme.incomeColor,
               ),
             ],
           ),
@@ -174,6 +188,16 @@ class _CreditCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardColor = Color(card.color);
+    final statusColor = card.isHighUtilization
+        ? AppTheme.expenseColor
+        : card.usedPercent > .4
+        ? AppTheme.warningColor
+        : AppTheme.incomeColor;
+    final statusText = card.isHighUtilization
+        ? 'High usage'
+        : card.usedPercent > .4
+        ? 'In use'
+        : 'Healthy';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -190,7 +214,10 @@ class _CreditCardTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -198,9 +225,10 @@ class _CreditCardTile extends StatelessWidget {
                       color: cardColor.withAlpha(30),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      card.icon,
-                      style: const TextStyle(fontSize: 22),
+                    child: Icon(
+                      EmojiToIcon.getIcon(card.icon),
+                      color: cardColor,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -236,7 +264,7 @@ class _CreditCardTile extends StatelessWidget {
                           fontSize: 16,
                           color: card.isHighUtilization
                               ? AppTheme.expenseColor
-                              : Colors.white,
+                              : AppTheme.primaryTextColor,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -258,24 +286,38 @@ class _CreditCardTile extends StatelessWidget {
                   value: card.usedPercent,
                   minHeight: 4,
                   backgroundColor: Colors.white10,
-                  valueColor: AlwaysStoppedAnimation(
-                    card.isHighUtilization ? AppTheme.expenseColor : cardColor,
-                  ),
+                  valueColor: AlwaysStoppedAnimation(statusColor),
                 ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withAlpha(28),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                   _InfoChip(
                     icon: Icons.calendar_today_rounded,
                     label: 'Bill: ${card.billingDay}',
                   ),
-                  const SizedBox(width: 12),
                   _InfoChip(
                     icon: Icons.event_rounded,
                     label: 'Due: ${card.dueDay}',
                   ),
-                  const Spacer(),
                   Text(
                     'Available: ${Formatters.currency(card.availableLimit)}',
                     style: const TextStyle(color: Colors.white38, fontSize: 11),
@@ -321,6 +363,7 @@ class _CreditCardTile extends StatelessWidget {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  requestFocus: true,
                   backgroundColor: Colors.transparent,
                   builder: (_) => _AddCardSheet(existing: card),
                 );
@@ -426,13 +469,13 @@ class _AddCardSheetState extends State<_AddCardSheet> {
       text: e != null ? e.creditLimit.toStringAsFixed(0) : '',
     );
     _usedCtrl = TextEditingController(
-      text: e != null ? e.usedAmount.toStringAsFixed(0) : '0',
+      text: e != null ? e.usedAmount.toStringAsFixed(0) : '',
     );
     _billingCtrl = TextEditingController(
-      text: e != null ? e.billingDay.toString() : '',
+      text: e != null ? e.billingDay.toString() : '1',
     );
     _dueCtrl = TextEditingController(
-      text: e != null ? e.dueDay.toString() : '',
+      text: e != null ? e.dueDay.toString() : '15',
     );
     _noteCtrl = TextEditingController(text: e?.note ?? '');
     _selectedColor = e?.color ?? AppConstants.colorOptions.first;
@@ -452,15 +495,17 @@ class _AddCardSheetState extends State<_AddCardSheet> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
+    final limit = double.parse(_limitCtrl.text.trim());
+    final used = double.tryParse(_usedCtrl.text.trim()) ?? 0;
 
     final card = CreditCardModel(
       id: widget.existing?.id ?? const Uuid().v4(),
       name: _nameCtrl.text.trim(),
-      last4: _last4Ctrl.text.trim(),
-      creditLimit: double.parse(_limitCtrl.text.trim()),
-      usedAmount: double.parse(_usedCtrl.text.trim()),
-      billingDay: int.parse(_billingCtrl.text.trim()),
-      dueDay: int.parse(_dueCtrl.text.trim()),
+      last4: _last4Ctrl.text.trim().isEmpty ? '0000' : _last4Ctrl.text.trim(),
+      creditLimit: limit,
+      usedAmount: used.clamp(0, limit).toDouble(),
+      billingDay: int.tryParse(_billingCtrl.text.trim()) ?? 1,
+      dueDay: int.tryParse(_dueCtrl.text.trim()) ?? 15,
       color: _selectedColor,
       note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       createdAt: widget.existing?.createdAt ?? DateTime.now(),
@@ -507,6 +552,14 @@ class _AddCardSheetState extends State<_AddCardSheet> {
               _isEditing ? 'Edit Credit Card' : 'Add Credit Card',
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
+            const SizedBox(height: 6),
+            const Text(
+              'Only card name and limit are required.',
+              style: TextStyle(
+                color: AppTheme.secondaryTextColor,
+                fontSize: 12,
+              ),
+            ),
             const SizedBox(height: 20),
             TextFormField(
               controller: _nameCtrl,
@@ -520,13 +573,13 @@ class _AddCardSheetState extends State<_AddCardSheet> {
               controller: _last4Ctrl,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                labelText: 'Last 4 Digits',
+                labelText: 'Last 4 Digits (optional)',
                 hintText: '1234',
               ),
               keyboardType: TextInputType.number,
               maxLength: 4,
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Required';
+                if (v == null || v.trim().isEmpty) return null;
                 if (v.trim().length != 4 || int.tryParse(v.trim()) == null) {
                   return 'Enter valid 4 digits';
                 }
@@ -543,7 +596,8 @@ class _AddCardSheetState extends State<_AddCardSheet> {
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Required';
-                if (double.tryParse(v.trim()) == null) return 'Invalid number';
+                final value = double.tryParse(v.trim());
+                if (value == null || value <= 0) return 'Enter valid limit';
                 return null;
               },
             ),
@@ -551,13 +605,17 @@ class _AddCardSheetState extends State<_AddCardSheet> {
             TextFormField(
               controller: _usedCtrl,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Used Amount'),
+              decoration: const InputDecoration(
+                labelText: 'Used Amount (optional)',
+                hintText: '0',
+              ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Required';
-                if (double.tryParse(v.trim()) == null) return 'Invalid number';
+                if (v == null || v.trim().isEmpty) return null;
+                final value = double.tryParse(v.trim());
+                if (value == null || value < 0) return 'Invalid number';
                 return null;
               },
             ),
@@ -571,7 +629,7 @@ class _AddCardSheetState extends State<_AddCardSheet> {
                     decoration: const InputDecoration(labelText: 'Billing Day'),
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (v == null || v.trim().isEmpty) return null;
                       final d = int.tryParse(v.trim());
                       if (d == null || d < 1 || d > 31) return '1-31';
                       return null;
@@ -586,7 +644,7 @@ class _AddCardSheetState extends State<_AddCardSheet> {
                     decoration: const InputDecoration(labelText: 'Due Day'),
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (v == null || v.trim().isEmpty) return null;
                       final d = int.tryParse(v.trim());
                       if (d == null || d < 1 || d > 31) return '1-31';
                       return null;

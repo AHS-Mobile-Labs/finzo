@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../models/transaction_model.dart';
@@ -25,9 +26,20 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     final searchLower = _search.toLowerCase();
     final filtered = all.where((tx) {
+      final category = provider.getCategoryById(tx.categoryId);
+      final account = provider.getAccountById(tx.accountId);
+      final related = tx.relatedAccountId == null
+          ? null
+          : provider.getAccountById(tx.relatedAccountId!);
       final matchType = _filter == 'all' || tx.type == _filter;
-      final matchSearch =
-          _search.isEmpty || tx.title.toLowerCase().contains(searchLower);
+      final searchable = [
+        tx.title,
+        tx.note ?? '',
+        category?.name ?? '',
+        account?.name ?? '',
+        related?.name ?? '',
+      ].join(' ').toLowerCase();
+      final matchSearch = _search.isEmpty || searchable.contains(searchLower);
       return matchType && matchSearch;
     }).toList();
 
@@ -75,17 +87,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: '📉 Expense',
+                      label: 'Expense',
                       selected: _filter == 'expense',
                       onTap: () => setState(() => _filter = 'expense'),
                       activeColor: AppTheme.expenseColor,
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: '📈 Income',
+                      label: 'Income',
                       selected: _filter == 'income',
                       onTap: () => setState(() => _filter = 'income'),
                       activeColor: AppTheme.incomeColor,
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Transfer',
+                      selected: _filter == 'transfer',
+                      onTap: () => setState(() => _filter = 'transfer'),
+                      activeColor: AppTheme.primaryColor,
                     ),
                   ],
                 ),
@@ -99,7 +118,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('🔍', style: TextStyle(fontSize: 48)),
+                    Icon(Icons.search_rounded, color: Colors.white24, size: 48),
                     SizedBox(height: 12),
                     Text(
                       'No transactions found',
@@ -119,7 +138,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   final dayTotal = entry.value.fold<double>(
                     0,
                     (sum, tx) =>
-                        sum + (tx.type == 'income' ? tx.amount : -tx.amount),
+                        sum +
+                        (tx.type == 'transfer'
+                            ? 0
+                            : tx.type == 'income'
+                            ? tx.amount
+                            : -tx.amount),
                   );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,13 +175,27 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         ),
                       ),
                       ...entry.value.map(
-                        (tx) => TransactionTile(
-                          transaction: tx,
-                          category: provider.getCategoryById(tx.categoryId),
-                          account: provider.getAccountById(tx.accountId),
-                          onTap: () => _showEdit(context, tx),
-                          onDelete: () => provider.removeTransaction(tx),
-                        ),
+                        (tx) =>
+                            TransactionTile(
+                                  transaction: tx,
+                                  category: provider.getCategoryById(
+                                    tx.categoryId,
+                                  ),
+                                  account: provider.getAccountById(
+                                    tx.accountId,
+                                  ),
+                                  relatedAccount: tx.relatedAccountId == null
+                                      ? null
+                                      : provider.getAccountById(
+                                          tx.relatedAccountId!,
+                                        ),
+                                  onTap: () => _showEdit(context, tx),
+                                  onDelete: () =>
+                                      provider.removeTransaction(tx),
+                                )
+                                .animate()
+                                .fadeIn(duration: 180.ms)
+                                .slideX(begin: .03, end: 0),
                       ),
                     ],
                   );
@@ -178,6 +216,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      requestFocus: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AddTransactionSheet(),
     );
@@ -187,6 +226,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      requestFocus: true,
       backgroundColor: Colors.transparent,
       builder: (_) => AddTransactionSheet(existing: tx),
     );

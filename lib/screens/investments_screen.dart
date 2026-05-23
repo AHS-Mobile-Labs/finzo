@@ -18,15 +18,27 @@ class InvestmentsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Investments')),
       body: investments.isEmpty
-          ? Center(
+          ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('📈', style: TextStyle(fontSize: 64)),
-                  const SizedBox(height: 16),
+                  Icon(
+                    Icons.trending_up_rounded,
+                    size: 64,
+                    color: Colors.white54,
+                  ),
+                  SizedBox(height: 16),
                   Text(
-                    'No investments added yet',
+                    'Track your first investment',
                     style: TextStyle(color: Colors.white54, fontSize: 16),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Add a name and invested amount to start.',
+                    style: TextStyle(
+                      color: AppTheme.mutedTextColor,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -53,6 +65,7 @@ class InvestmentsScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      requestFocus: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddInvestmentSheet(existing: existing),
     );
@@ -78,17 +91,16 @@ class _InvestmentSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isProfit
-              ? [const Color(0xFF2ECC71), const Color(0xFF27AE60)]
-              : [const Color(0xFFE74C3C), const Color(0xFFC0392B)],
+              ? [AppTheme.incomeColor, const Color(0xFF5FE39A)]
+              : [AppTheme.expenseColor, const Color(0xFFFF8E8E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color:
-                (isProfit ? const Color(0xFF2ECC71) : const Color(0xFFE74C3C))
-                    .withAlpha(80),
+            color: (isProfit ? AppTheme.incomeColor : AppTheme.expenseColor)
+                .withAlpha(62),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -201,10 +213,7 @@ class _InvestmentTile extends StatelessWidget {
                   color: color.withAlpha(38),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  investment.type.icon,
-                  style: const TextStyle(fontSize: 22),
-                ),
+                child: Icon(investment.type.iconData, color: color, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -344,6 +353,7 @@ class _InvestmentTile extends StatelessWidget {
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
+                        requestFocus: true,
                         builder: (_) =>
                             _AddInvestmentSheet(existing: investment),
                       );
@@ -427,6 +437,7 @@ class _AddInvestmentSheetState extends State<_AddInvestmentSheet> {
 
   InvestmentType _type = InvestmentType.mutualFund;
   DateTime _startDate = DateTime.now();
+  bool _showAdvanced = false;
 
   bool get _isEditing => widget.existing != null;
 
@@ -444,6 +455,11 @@ class _AddInvestmentSheetState extends State<_AddInvestmentSheet> {
       _noteCtrl.text = i.note ?? '';
       _type = i.type;
       _startDate = i.startDate;
+      _showAdvanced =
+          i.units != null ||
+          i.buyPrice != null ||
+          i.currentPrice != null ||
+          (i.note?.isNotEmpty ?? false);
     }
   }
 
@@ -555,8 +571,13 @@ class _AddInvestmentSheetState extends State<_AddInvestmentSheet> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
+                      avatar: Icon(
+                        t.iconData,
+                        color: selected ? Colors.white : Colors.white54,
+                        size: 16,
+                      ),
                       label: Text(
-                        '${t.icon} ${t.label}',
+                        t.label,
                         style: TextStyle(
                           fontSize: 12,
                           color: selected ? Colors.white : Colors.white54,
@@ -575,110 +596,152 @@ class _AddInvestmentSheetState extends State<_AddInvestmentSheet> {
 
             TextField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Investment Name'),
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                hintText: 'SIP, stock, gold, FD...',
+                prefixIcon: Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white38,
+                ),
+              ),
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 12),
 
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _investedCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Invested Amount',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _currentCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Current Value',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _unitsCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Units (optional)',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _buyPriceCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Buy Price (optional)',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _currentPriceCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Current Price (optional)',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _startDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) setState(() => _startDate = picked);
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Start Date',
-                      ),
-                      child: Text(
-                        Formatters.dateShort(_startDate),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            TextField(
+              controller: _investedCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Invested Amount',
+                prefixText: '₹  ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 12),
 
             TextField(
-              controller: _noteCtrl,
-              decoration: const InputDecoration(labelText: 'Note (optional)'),
-              maxLines: 2,
+              controller: _currentCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Current Value (optional)',
+                hintText: 'Leave empty to use invested amount',
+                prefixText: '₹  ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
+            const SizedBox(height: 12),
+
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _startDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) setState(() => _startDate = picked);
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Start Date',
+                  prefixIcon: Icon(
+                    Icons.calendar_today_rounded,
+                    color: Colors.white38,
+                  ),
+                ),
+                child: Text(
+                  Formatters.dateShort(_startDate),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: _showAdvanced,
+              activeThumbColor: AppTheme.primaryColor,
+              title: const Text(
+                'Add units, prices, or note',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              onChanged: (value) => setState(() => _showAdvanced = value),
+            ),
+
+            if (_showAdvanced) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _unitsCtrl,
+                      decoration: const InputDecoration(labelText: 'Units'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _buyPriceCtrl,
+                      decoration: const InputDecoration(labelText: 'Buy Price'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _currentPriceCtrl,
+                decoration: const InputDecoration(labelText: 'Current Price'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Note',
+                  prefixIcon: Icon(Icons.notes_rounded, color: Colors.white38),
+                ),
+                maxLines: 2,
+              ),
+            ] else ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.elevatedSurfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppTheme.warningColor,
+                      size: 18,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Tip: current value can be updated anytime from edit.',
+                        style: TextStyle(
+                          color: AppTheme.secondaryTextColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             SizedBox(

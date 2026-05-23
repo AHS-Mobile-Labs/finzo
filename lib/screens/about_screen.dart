@@ -1,210 +1,434 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/app_theme.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  void _launchUrl(String url) async {
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('About Finzo'), centerTitle: true),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // App Header
-            Center(
-              child: Column(
-                children: [
-                  const Text('💰', style: TextStyle(fontSize: 56)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Finzo',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: -0.5,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 220,
+            backgroundColor: AppTheme.backgroundColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+              title: const Text(
+                'About Finzo',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              background: const _HeroHeader(),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            sliver: SliverList.list(
+              children: [
+                const _PrivacyCard()
+                    .animate()
+                    .fadeIn(duration: 280.ms)
+                    .slideY(begin: .08, end: 0),
+                const SizedBox(height: 18),
+                const _SectionTitle('Built For'),
+                const SizedBox(height: 10),
+                const Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _FeatureChip(
+                      icon: Icons.account_balance_wallet_rounded,
+                      label: 'Accounts',
                     ),
+                    _FeatureChip(
+                      icon: Icons.swap_horiz_rounded,
+                      label: 'Transfers',
+                    ),
+                    _FeatureChip(
+                      icon: Icons.pie_chart_rounded,
+                      label: 'Budgets',
+                    ),
+                    _FeatureChip(
+                      icon: Icons.insights_rounded,
+                      label: 'Analytics',
+                    ),
+                    _FeatureChip(
+                      icon: Icons.credit_card_rounded,
+                      label: 'Cards',
+                    ),
+                    _FeatureChip(
+                      icon: Icons.trending_up_rounded,
+                      label: 'Investing',
+                    ),
+                    _FeatureChip(
+                      icon: Icons.account_balance_rounded,
+                      label: 'Loans',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                const _SectionTitle('Principles'),
+                const SizedBox(height: 10),
+                const _PrincipleTile(
+                  icon: Icons.offline_bolt_rounded,
+                  title: 'Offline first',
+                  body: 'Your finance book stays local and available anytime.',
+                ),
+                const _PrincipleTile(
+                  icon: Icons.lock_rounded,
+                  title: 'Privacy focused',
+                  body: 'No cloud account is required for everyday tracking.',
+                ),
+                const _PrincipleTile(
+                  icon: Icons.auto_graph_rounded,
+                  title: 'Decision ready',
+                  body:
+                      'Dashboards, budgets, loans, cards, and investments stay connected.',
+                ),
+                const SizedBox(height: 24),
+                const _SectionTitle('Connect'),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.mail_outline_rounded,
+                  label: 'Email',
+                  subtitle: 'ahsmobilelabs@gmail.com',
+                  url: 'mailto:ahsmobilelabs@gmail.com',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.code_rounded,
+                  label: 'GitHub',
+                  subtitle: 'github.com/ahsmobilelabs',
+                  url: 'https://github.com/ahsmobilelabs',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.link_rounded,
+                  label: 'Linktree',
+                  subtitle: 'All project links',
+                  url: 'https://linktr.ee/ahsmobilelabs',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 14),
+                _LinktreeQrCard(
+                  onTap: () => _launchUrl('https://linktr.ee/ahsmobilelabs'),
+                ),
+                const SizedBox(height: 28),
+                const Center(
+                  child: Text(
+                    'Finzo v1.0.0  |  AHS Mobile Labs',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'v1.0.0',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white54,
-                    ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroHeader extends StatelessWidget {
+  const _HeroHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF090D18), Color(0xFF241044), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -38,
+            top: 28,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withAlpha(46),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withAlpha(90),
+                    blurRadius: 80,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-
-            // Description
-            const Text(
-              'About',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Finzo is a fully offline personal finance management app that helps you track expenses, manage accounts, set budgets, and achieve your financial goals with ease and privacy.',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: Colors.white70,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Key Features
-            const Text(
-              'Key Features',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _FeatureItem(
-              label: '📊 Dashboard',
-              description: 'Overview of your finances',
-            ),
-            _FeatureItem(
-              label: '💼 Accounts',
-              description: 'Manage multiple accounts',
-            ),
-            _FeatureItem(
-              label: '💳 Credit Cards',
-              description: 'Track credit card spending',
-            ),
-            _FeatureItem(
-              label: '📈 Investments',
-              description: 'Monitor your portfolio',
-            ),
-            _FeatureItem(
-              label: '🎯 Budgets',
-              description: 'Set and track budgets',
-            ),
-            _FeatureItem(
-              label: '📊 Reports',
-              description: 'Detailed financial reports',
-            ),
-            _FeatureItem(label: '🏦 Loans', description: 'Track active loans'),
-            const SizedBox(height: 32),
-
-            // Social/Contact Section
-            const Text(
-              'Connect With Us',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ContactButton(
-              icon: Icons.mail_outline_rounded,
-              label: 'Email',
-              subtitle: 'Contact us',
-              url: 'mailto:ahsmobilelabs@gmail.com',
-              onTap: _launchUrl,
-            ),
-            const SizedBox(height: 10),
-            _ContactButton(
-              icon: Icons.code_rounded,
-              label: 'GitHub',
-              subtitle: 'View source code',
-              url: 'https://github.com/ahsmobilelabs',
-              onTap: _launchUrl,
-            ),
-            const SizedBox(height: 10),
-            _ContactButton(
-              icon: Icons.link_rounded,
-              label: 'Linktree',
-              subtitle: 'All links in one place',
-              url: 'https://linktr.ee/ahsmobilelabs',
-              onTap: _launchUrl,
-            ),
-            const SizedBox(height: 32),
-
-            // Footer
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Made with ❤️ by AHS Mobile Labs',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white38,
+          ),
+          Positioned(
+            left: 20,
+            top: 84,
+            child: Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.primaryColor, Color(0xFF38BDF8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withAlpha(90),
+                        blurRadius: 26,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Fully offline • Privacy-focused • Open source',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white24,
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    'assets/laucher_icon_img/In use/Finzo Logo.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Finzo',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    Text(
+                      'Private finance, beautifully offline',
+                      style: TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyCard extends StatelessWidget {
+  const _PrivacyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor.withAlpha(220),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withAlpha(18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(80),
+            blurRadius: 24,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: const Text(
+        'Finzo helps you track spending, accounts, budgets, loans, credit cards, and investments in one local finance book. It is designed for quick daily entry and clear monthly decisions.',
+        style: TextStyle(color: Colors.white70, height: 1.55, fontSize: 13),
+      ),
+    );
+  }
+}
+
+class _LinktreeQrCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _LinktreeQrCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withAlpha(16)),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/app image/Linktree QR code/ahsmobilelabs.png',
+                  width: 86,
+                  height: 86,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan Linktree',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Open AHS Mobile Labs links from the QR code.',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.qr_code_2_rounded,
+                color: AppTheme.primaryColor,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _FeatureItem extends StatelessWidget {
-  final String label;
-  final String description;
-
-  const _FeatureItem({required this.label, required this.description});
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _FeatureChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _FeatureChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppTheme.primaryColor, size: 17),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrincipleTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+
+  const _PrincipleTile({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(14)),
+      ),
       child: Row(
         children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withAlpha(34),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  title,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                     color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  description,
+                  body,
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
                     color: Colors.white54,
+                    fontSize: 12,
+                    height: 1.35,
                   ),
                 ),
               ],
@@ -221,7 +445,7 @@ class _ContactButton extends StatelessWidget {
   final String label;
   final String subtitle;
   final String url;
-  final Function(String) onTap;
+  final Future<void> Function(String) onTap;
 
   const _ContactButton({
     required this.icon,
@@ -237,24 +461,17 @@ class _ContactButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onTap(url),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white10),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withAlpha(16)),
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withAlpha(30),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: AppTheme.primaryColor, size: 18),
-              ),
+              Icon(icon, color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -263,17 +480,17 @@ class _ContactButton extends StatelessWidget {
                     Text(
                       label,
                       style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
                         color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
                         color: Colors.white54,
+                        fontSize: 11,
                       ),
                     ),
                   ],

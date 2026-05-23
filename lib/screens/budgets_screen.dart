@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../providers/finance_provider.dart';
 import '../models/budget_model.dart';
 import '../models/category_model.dart';
 import '../utils/app_theme.dart';
+import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
 
 class BudgetsScreen extends StatelessWidget {
@@ -72,7 +74,7 @@ class BudgetsScreen extends StatelessWidget {
                 category: cat,
                 onDelete: () => provider.removeBudget(b.id),
                 onEdit: () => _showEditBudget(context, provider, b, cat),
-              );
+              ).animate().fadeIn(duration: 220.ms).slideY(begin: .04, end: 0);
             }),
         ],
       ),
@@ -161,9 +163,21 @@ class _OverviewCard extends StatelessWidget {
                   color: Colors.white.withAlpha(38),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  isOver ? '⚠️ Over Budget' : '✅ On Track',
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                child: Row(
+                  children: [
+                    Icon(
+                      isOver
+                          ? Icons.warning_rounded
+                          : Icons.check_circle_rounded,
+                      color: isOver ? Colors.orange : Colors.green,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isOver ? 'Over Budget' : 'On Track',
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -257,9 +271,10 @@ class _BudgetCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
-                    child: Text(
-                      category?.icon ?? '📦',
-                      style: const TextStyle(fontSize: 18),
+                    child: Icon(
+                      EmojiToIcon.getIcon(category?.icon ?? 'box'),
+                      color: color,
+                      size: 20,
                     ),
                   ),
                 ),
@@ -345,7 +360,7 @@ class _EmptyBudgets extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
-          const Text('🎯', style: TextStyle(fontSize: 48)),
+          Icon(Icons.track_changes_rounded, size: 48, color: Colors.white54),
           const SizedBox(height: 12),
           const Text(
             'No budgets set',
@@ -444,7 +459,17 @@ class _BudgetSheetState extends State<_BudgetSheet> {
               items: categories.map((cat) {
                 return DropdownMenuItem(
                   value: cat,
-                  child: Text('${cat.icon}  ${cat.name}'),
+                  child: Row(
+                    children: [
+                      Icon(
+                        EmojiToIcon.getIcon(cat.icon),
+                        color: Color(cat.color),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(cat.name),
+                    ],
+                  ),
                 );
               }).toList(),
               onChanged: (v) => setState(() => _selectedCategory = v),

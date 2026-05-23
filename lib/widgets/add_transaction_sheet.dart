@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
@@ -6,6 +7,7 @@ import '../models/category_model.dart';
 import '../models/account_model.dart';
 import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
 
 class AddTransactionSheet extends StatefulWidget {
@@ -23,9 +25,11 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
   final _titleCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  final _amountFocusNode = FocusNode();
   DateTime _selectedDate = DateTime.now();
   CategoryModel? _selectedCategory;
   AccountModel? _selectedAccount;
+  AccountModel? _destinationAccount;
   bool _submitting = false;
 
   bool get _isEditing => widget.existing != null;
@@ -33,17 +37,24 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     if (_isEditing) {
       final tx = widget.existing!;
       _titleCtrl.text = tx.title;
       _amountCtrl.text = tx.amount.toString();
       _noteCtrl.text = tx.note ?? '';
       _selectedDate = tx.date;
-      _tabController.index = tx.type == 'expense' ? 0 : 1;
+      _tabController.index = switch (tx.type) {
+        'income' => 1,
+        'transfer' => 2,
+        _ => 0,
+      };
       final p = context.read<FinanceProvider>();
       _selectedCategory = p.getCategoryById(tx.categoryId);
       _selectedAccount = p.getAccountById(tx.accountId);
+      if (tx.relatedAccountId != null) {
+        _destinationAccount = p.getAccountById(tx.relatedAccountId!);
+      }
     }
   }
 
@@ -53,40 +64,63 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
     _titleCtrl.dispose();
     _amountCtrl.dispose();
     _noteCtrl.dispose();
+    _amountFocusNode.dispose();
     super.dispose();
   }
 
-  String get _type => _tabController.index == 0 ? 'expense' : 'income';
+  String get _type => switch (_tabController.index) {
+    1 => 'income',
+    2 => 'transfer',
+    _ => 'expense',
+  };
+
+  bool get _isTransfer => _type == 'transfer';
 
   Future<void> _submit() async {
     if (_submitting) return;
     if (_titleCtrl.text.trim().isEmpty || _amountCtrl.text.isEmpty) return;
     final amount = double.tryParse(_amountCtrl.text);
     if (amount == null || amount <= 0) return;
-    if (_selectedCategory == null || _selectedAccount == null) return;
+    if (_selectedAccount == null) return;
+    if (_isTransfer &&
+        (_destinationAccount == null ||
+            _destinationAccount!.id == _selectedAccount!.id)) {
+      return;
+    }
+    if (!_isTransfer && _selectedCategory == null) return;
 
     setState(() => _submitting = true);
 
-    final provider = context.read<FinanceProvider>();
-    final tx = TransactionModel(
-      id: widget.existing?.id ?? const Uuid().v4(),
-      title: _titleCtrl.text.trim(),
-      amount: amount,
-      type: _type,
-      categoryId: _selectedCategory!.id,
-      accountId: _selectedAccount!.id,
-      date: _selectedDate,
-      note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      createdAt: widget.existing?.createdAt ?? DateTime.now(),
-    );
+    try {
+      final provider = context.read<FinanceProvider>();
+      final tx = TransactionModel(
+        id: widget.existing?.id ?? const Uuid().v4(),
+        title: _titleCtrl.text.trim(),
+        amount: amount,
+        type: _type,
+        categoryId: _isTransfer ? 'cat_transfer' : _selectedCategory!.id,
+        accountId: _selectedAccount!.id,
+        relatedAccountId: _isTransfer ? _destinationAccount!.id : null,
+        date: _selectedDate,
+        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+        createdAt: widget.existing?.createdAt ?? DateTime.now(),
+      );
 
-    if (_isEditing) {
-      await provider.editTransaction(widget.existing!, tx);
-    } else {
-      await provider.addTransaction(tx);
+      if (_isEditing) {
+        await provider.editTransaction(widget.existing!, tx);
+      } else {
+        await provider.addTransaction(tx);
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+      setState(() => _submitting = false);
     }
-
-    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -136,7 +170,10 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
               ),
               child: TabBar(
                 controller: _tabController,
-                onTap: (_) => setState(() => _selectedCategory = null),
+                onTap: (_) => setState(() {
+                  _selectedCategory = null;
+                  if (!_isTransfer) _destinationAccount = null;
+                }),
                 indicator: BoxDecoration(
                   color: _type == 'expense'
                       ? AppTheme.expenseColor.withAlpha(51)
@@ -149,9 +186,37 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
                 unselectedLabelColor: Colors.white38,
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
-                tabs: const [
-                  Tab(text: '📉  Expense'),
-                  Tab(text: '📈  Income'),
+                tabs: [
+                  const Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.trending_down_rounded, size: 18),
+                        SizedBox(width: 6),
+                        Text('Expense'),
+                      ],
+                    ),
+                  ),
+                  const Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.trending_up_rounded, size: 18),
+                        SizedBox(width: 6),
+                        Text('Income'),
+                      ],
+                    ),
+                  ),
+                  const Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.swap_horiz_rounded, size: 18),
+                        SizedBox(width: 6),
+                        Text('Transfer'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -160,9 +225,19 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
             // Amount
             TextField(
               controller: _amountCtrl,
+              focusNode: _amountFocusNode,
+              onTap: () => _amountFocusNode.requestFocus(),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: [
+                TextInputFormatter.withFunction((oldValue, newValue) {
+                  final isValidAmount = RegExp(
+                    r'^\d*\.?\d{0,2}$',
+                  ).hasMatch(newValue.text);
+                  return isValidAmount ? newValue : oldValue;
+                }),
+              ],
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -189,25 +264,51 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
             ),
             const SizedBox(height: 12),
 
-            // Category selector
-            _buildDropdown<CategoryModel>(
-              label: 'Category',
-              icon: _selectedCategory?.icon ?? '📂',
-              value: _selectedCategory?.name ?? 'Select category',
-              items: provider.getCategoriesForType(_type),
-              onTap: () => _pickCategory(provider.getCategoriesForType(_type)),
-            ),
-            const SizedBox(height: 12),
+            if (!_isTransfer) ...[
+              _buildDropdown<CategoryModel>(
+                label: 'Category',
+                icon: _selectedCategory?.icon,
+                fallbackIcon: Icons.category_rounded,
+                value: _selectedCategory?.name ?? 'Select category',
+                items: provider.getCategoriesForType(_type),
+                onTap: () =>
+                    _pickCategory(provider.getCategoriesForType(_type)),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Account selector
             _buildDropdown<AccountModel>(
-              label: 'Account',
-              icon: _selectedAccount?.icon ?? '🏦',
-              value: _selectedAccount?.name ?? 'Select account',
+              label: _isTransfer ? 'From account' : 'Account',
+              icon: _selectedAccount?.icon,
+              fallbackIcon: Icons.account_balance_rounded,
+              value:
+                  _selectedAccount?.name ??
+                  (_isTransfer ? 'Select source account' : 'Select account'),
               items: provider.accounts,
-              onTap: () => _pickAccount(provider.accounts),
+              onTap: () =>
+                  _pickAccount(provider.accounts, isDestination: false),
             ),
             const SizedBox(height: 12),
+            if (_isTransfer) ...[
+              _buildDropdown<AccountModel>(
+                label: 'To account',
+                icon: _destinationAccount?.icon,
+                fallbackIcon: Icons.account_balance_wallet_rounded,
+                value:
+                    _destinationAccount?.name ?? 'Select destination account',
+                items: provider.accounts
+                    .where((acc) => acc.id != _selectedAccount?.id)
+                    .toList(),
+                onTap: () => _pickAccount(
+                  provider.accounts
+                      .where((acc) => acc.id != _selectedAccount?.id)
+                      .toList(),
+                  isDestination: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Date
             GestureDetector(
@@ -270,7 +371,8 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
 
   Widget _buildDropdown<T>({
     required String label,
-    required String icon,
+    required String? icon,
+    required IconData fallbackIcon,
     required String value,
     required List<T> items,
     required VoidCallback onTap,
@@ -286,7 +388,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
         ),
         child: Row(
           children: [
-            Text(icon, style: const TextStyle(fontSize: 20)),
+            icon != null
+                ? Icon(
+                    EmojiToIcon.getIcon(icon),
+                    color: Colors.white54,
+                    size: 20,
+                  )
+                : Icon(fallbackIcon, color: Colors.white54, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -329,7 +437,10 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
     if (result != null) setState(() => _selectedCategory = result);
   }
 
-  Future<void> _pickAccount(List<AccountModel> accounts) async {
+  Future<void> _pickAccount(
+    List<AccountModel> accounts, {
+    required bool isDestination,
+  }) async {
     final result = await showModalBottomSheet<AccountModel>(
       context: context,
       backgroundColor: AppTheme.surfaceColor,
@@ -346,7 +457,18 @@ class _AddTransactionSheetState extends State<AddTransactionSheet>
         ),
       ),
     );
-    if (result != null) setState(() => _selectedAccount = result);
+    if (result != null) {
+      setState(() {
+        if (isDestination) {
+          _destinationAccount = result;
+        } else {
+          _selectedAccount = result;
+          if (_destinationAccount?.id == result.id) {
+            _destinationAccount = null;
+          }
+        }
+      });
+    }
   }
 
   Future<void> _pickDate() async {
@@ -437,7 +559,7 @@ class _PickerItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 24)),
+          Icon(EmojiToIcon.getIcon(icon), color: color, size: 26),
           const SizedBox(height: 4),
           Text(
             label,

@@ -4,11 +4,13 @@ import '../models/category_model.dart';
 import '../models/account_model.dart';
 import '../utils/app_theme.dart';
 import '../utils/formatters.dart';
+import '../utils/emoji_to_icon.dart';
 
 class TransactionTile extends StatelessWidget {
   final TransactionModel transaction;
   final CategoryModel? category;
   final AccountModel? account;
+  final AccountModel? relatedAccount;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
@@ -17,6 +19,7 @@ class TransactionTile extends StatelessWidget {
     required this.transaction,
     this.category,
     this.account,
+    this.relatedAccount,
     this.onTap,
     this.onDelete,
   });
@@ -24,7 +27,14 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == 'income';
+    final isTransfer = transaction.type == 'transfer';
     final color = Color(category?.color ?? 0xFF6C63FF);
+    final amountColor = isTransfer
+        ? AppTheme.primaryColor
+        : isIncome
+        ? AppTheme.incomeColor
+        : AppTheme.expenseColor;
+    final amountPrefix = isTransfer ? '' : (isIncome ? '+' : '-');
 
     return Dismissible(
       key: Key(transaction.id),
@@ -91,9 +101,10 @@ class TransactionTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: Text(
-                    category?.icon ?? '💰',
-                    style: const TextStyle(fontSize: 20),
+                  child: Icon(
+                    EmojiToIcon.getIcon(category?.icon ?? 'cash'),
+                    color: color,
+                    size: 20,
                   ),
                 ),
               ),
@@ -130,14 +141,17 @@ class TransactionTile extends StatelessWidget {
                               fontSize: 11,
                             ),
                           ),
-                          Text(
-                            account!.icon,
-                            style: const TextStyle(fontSize: 11),
+                          Icon(
+                            EmojiToIcon.getIcon(account!.icon),
+                            color: Colors.white38,
+                            size: 12,
                           ),
                           const SizedBox(width: 2),
                           Flexible(
                             child: Text(
-                              account!.name,
+                              isTransfer && relatedAccount != null
+                                  ? '${account!.name} → ${relatedAccount!.name}'
+                                  : account!.name,
                               style: const TextStyle(
                                 color: Colors.white38,
                                 fontSize: 11,
@@ -153,11 +167,9 @@ class TransactionTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '${isIncome ? '+' : '-'}${Formatters.currency(transaction.amount)}',
+                '$amountPrefix${Formatters.currency(transaction.amount)}',
                 style: TextStyle(
-                  color: isIncome
-                      ? AppTheme.incomeColor
-                      : AppTheme.expenseColor,
+                  color: amountColor,
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -14,55 +16,136 @@ class DatabaseService {
   static DatabaseService? _instance;
   static Database? _database;
   static String? _currentBookName;
+  static bool _isInitializing = false;
+  static Completer<Database>? _initCompleter;
 
   DatabaseService._();
   static DatabaseService get instance => _instance ??= DatabaseService._();
+
+  static void _log(String message) {
+    if (kDebugMode) debugPrint(message);
+  }
 
   /// The name of the currently open book
   String? get currentBookName => _currentBookName;
 
   Future<Database> get database async {
-    _database ??= await _initDatabase();
-    return _database!;
-  }
+    if (_database != null) {
+      return _database!;
+    }
 
-  /// Returns the Finzo directory inside public Documents on Android
-  static Future<String> get finzoDir async {
-    if (Platform.isAndroid) {
-      final dir = Directory('/storage/emulated/0/Documents/finzo');
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      return dir.path;
-    }
-    final docs = await getApplicationDocumentsDirectory();
-    final dir = Directory(p.join(docs.path, 'finzo'));
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return dir.path;
-  }
-
-  /// Migrate data from old app-internal path to new public Documents path
-  static Future<void> migrateToPublicStorage() async {
-    if (!Platform.isAndroid) return;
-    final oldDocs = await getApplicationDocumentsDirectory();
-    final oldDir = Directory(p.join(oldDocs.path, 'finzo'));
-    if (!await oldDir.exists()) return;
-    final newDir = Directory('/storage/emulated/0/Documents/finzo');
-    if (!await newDir.exists()) {
-      await newDir.create(recursive: true);
-    }
-    await for (final entity in oldDir.list()) {
-      if (entity is File) {
-        final name = p.basename(entity.path);
-        final dest = File(p.join(newDir.path, name));
-        if (!await dest.exists()) {
-          await entity.copy(dest.path);
+    // If already initializing, wait for that initialization
+    if (_isInitializing) {
+      if (_initCompleter != null) {
+        try {
+          return await _initCompleter!.future.timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw TimeoutException('Database initialization timed out');
+            },
+          );
+        } catch (e) {
+          _log('[DB] Error waiting for init: $e');
+          _isInitializing = false;
+          _initCompleter = null;
+          rethrow;
         }
       }
     }
-    await oldDir.delete(recursive: true);
+
+    if (_database != null) {
+      return _database!;
+    }
+
+    _isInitializing = true;
+    _initCompleter = Completer<Database>();
+    try {
+      _database = await _initDatabase().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw TimeoutException('Database initialization exceeded 60 seconds');
+        },
+      );
+      _log('[DB] Database initialized successfully');
+      _initCompleter?.complete(_database!);
+      return _database!;
+    } catch (e) {
+      _log('[DB] Error initializing database: $e');
+      _database = null;
+      _initCompleter?.completeError(e);
+      rethrow;
+    } finally {
+      _isInitializing = false;
+      _initCompleter = null;
+    }
+  }
+
+  /// Returns the Finzo directory
+  /// On Android: Uses app-specific external cache directory (no special permissions needed)
+  /// On other platforms: Uses app documents directory
+  static Future<String> get finzoDir async {
+    try {
+      Directory dir;
+
+      if (Platform.isAndroid) {
+        // Use cache directory on Android (app-specific, no special permissions needed)
+        final cache = await getApplicationCacheDirectory();
+        dir = Directory(p.join(cache.parent.path, 'files', 'finzo'));
+        _log('[DB] Using Android app-specific storage: ${dir.path}');
+      } else {
+        // Use documents directory for iOS and other platforms
+        final docs = await getApplicationDocumentsDirectory();
+        dir = Directory(p.join(docs.path, 'finzo'));
+        _log('[DB] Using app documents directory: ${dir.path}');
+      }
+
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+        _log('[DB] Created finzo directory: ${dir.path}');
+      }
+
+      return dir.path;
+    } catch (e) {
+      _log('[DB] Error accessing finzo directory: $e');
+
+      // Final fallback: use app documents directory
+      final docs = await getApplicationDocumentsDirectory();
+      final dir = Directory(p.join(docs.path, 'finzo'));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      _log('[DB] Using fallback documents directory: ${dir.path}');
+      return dir.path;
+    }
+  }
+
+  /// Migrate data from previous Android storage locations into the active
+  /// app-specific storage directory. Sources are left in place as a backup.
+  static Future<void> migrateToPublicStorage() async {
+    if (!Platform.isAndroid) return;
+
+    final targetDir = Directory(await finzoDir);
+    final oldDocs = await getApplicationDocumentsDirectory();
+    final sources = [
+      Directory(p.join(oldDocs.path, 'finzo')),
+      Directory('/storage/emulated/0/Documents/finzo'),
+    ];
+
+    for (final sourceDir in sources) {
+      if (!await sourceDir.exists()) continue;
+
+      await for (final entity in sourceDir.list()) {
+        if (entity is File) {
+          final name = p.basename(entity.path);
+          if (!name.endsWith('.books.db') && name != '.onboarded') continue;
+
+          final dest = File(p.join(targetDir.path, name));
+          if (!await dest.exists()) {
+            await entity.copy(dest.path);
+          }
+        }
+      }
+    }
   }
 
   /// Check if onboarding is complete (marker file in finzo dir)
@@ -106,14 +189,19 @@ class DatabaseService {
 
   /// Open a specific book database by name
   Future<void> openBook(String bookName) async {
-    if (_database != null) {
-      await _database!.close();
+    try {
+      if (_database != null) {
+        await _database!.close();
+      }
+    } catch (e) {
+      _log('Error closing previous database: $e');
+    } finally {
       _database = null;
     }
     final path = await pathForBook(bookName);
     _database = await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _createTables,
       onUpgrade: _onUpgrade,
     );
@@ -154,314 +242,514 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     // Default: open first available book, or create 'default'
-    final books = await listBooks();
-    final bookName = books.isNotEmpty ? books.first : 'default';
-    final path = await pathForBook(bookName);
-    _currentBookName = bookName;
+    try {
+      final books = await listBooks();
+      var bookName = books.isNotEmpty ? books.first : 'default';
 
-    return openDatabase(
-      path,
-      version: 3,
-      onCreate: _createTables,
-      onUpgrade: _onUpgrade,
-    );
+      // Ensure book name is not empty
+      if (bookName.isEmpty) {
+        bookName = 'default';
+      }
+
+      final path = await pathForBook(bookName);
+      _log('[DB] Opening database at: $path');
+      _currentBookName = bookName;
+
+      final db = await openDatabase(
+        path,
+        version: 5,
+        onCreate: _createTables,
+        onUpgrade: _onUpgrade,
+      );
+
+      _log('[DB] Database opened successfully: $bookName');
+      return db;
+    } catch (e) {
+      _log('[DB] Fatal error initializing database: $e');
+      rethrow;
+    }
   }
 
   Future<void> _createTables(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE accounts (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        balance REAL NOT NULL DEFAULT 0,
-        color INTEGER NOT NULL,
-        icon TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    ''');
+    try {
+      _log('[DB] Creating tables version: $version');
 
-    await db.execute('''
-      CREATE TABLE categories (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        icon TEXT NOT NULL,
-        color INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        is_default INTEGER NOT NULL DEFAULT 0
-      )
-    ''');
+      await db.execute('''
+        CREATE TABLE accounts (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          balance REAL NOT NULL DEFAULT 0,
+          color INTEGER NOT NULL,
+          icon TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
 
-    await db.execute('''
-      CREATE TABLE transactions (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        amount REAL NOT NULL,
-        type TEXT NOT NULL,
-        category_id TEXT NOT NULL,
-        account_id TEXT NOT NULL,
-        date TEXT NOT NULL,
-        note TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (category_id) REFERENCES categories(id),
-        FOREIGN KEY (account_id) REFERENCES accounts(id)
-      )
-    ''');
+      await db.execute('''
+        CREATE TABLE categories (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          icon TEXT NOT NULL,
+          color INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          is_default INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
 
-    // Index for faster transaction queries
-    await db.execute(
-      'CREATE INDEX idx_transactions_date ON transactions(date DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX idx_transactions_type ON transactions(type)',
-    );
+      await db.execute('''
+        CREATE TABLE transactions (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          amount REAL NOT NULL,
+          type TEXT NOT NULL,
+          category_id TEXT NOT NULL,
+          account_id TEXT NOT NULL,
+          related_account_id TEXT,
+          date TEXT NOT NULL,
+          note TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (category_id) REFERENCES categories(id),
+          FOREIGN KEY (account_id) REFERENCES accounts(id),
+          FOREIGN KEY (related_account_id) REFERENCES accounts(id)
+        )
+      ''');
 
-    await db.execute('''
-      CREATE TABLE budgets (
-        id TEXT PRIMARY KEY,
-        category_id TEXT NOT NULL,
-        amount REAL NOT NULL,
-        spent REAL NOT NULL DEFAULT 0,
-        month INTEGER NOT NULL,
-        year INTEGER NOT NULL,
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-      )
-    ''');
+      // Index for faster transaction queries
+      await db.execute(
+        'CREATE INDEX idx_transactions_date ON transactions(date DESC)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_transactions_type ON transactions(type)',
+      );
 
-    await _createV2Tables(db);
-    await _createV3Tables(db);
-    await _insertDefaultData(db);
+      await db.execute('''
+        CREATE TABLE budgets (
+          id TEXT PRIMARY KEY,
+          category_id TEXT NOT NULL,
+          amount REAL NOT NULL,
+          spent REAL NOT NULL DEFAULT 0,
+          month INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          FOREIGN KEY (category_id) REFERENCES categories(id)
+        )
+      ''');
+
+      await _createV2Tables(db);
+      await _createV3Tables(db);
+      await _insertDefaultData(db);
+
+      _log('[DB] Tables created successfully');
+    } catch (e) {
+      _log('[DB] Error creating tables: $e');
+      rethrow;
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await _createV2Tables(db);
-    }
-    if (oldVersion < 3) {
-      await _createV3Tables(db);
+    try {
+      _log('[DB] Upgrading database from version $oldVersion to $newVersion');
+
+      if (oldVersion < 2) {
+        await _createV2Tables(db);
+      }
+      if (oldVersion < 3) {
+        await _createV3Tables(db);
+      }
+      if (oldVersion < 4) {
+        await _createV4Tables(db);
+      }
+      if (oldVersion < 5) {
+        await _migrateIconKeys(db);
+      }
+
+      _log('[DB] Database upgrade successful');
+    } catch (e) {
+      _log('[DB] Error upgrading database: $e');
+      rethrow;
     }
   }
 
   Future<void> _createV3Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS credit_cards (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        card_number_last4 TEXT NOT NULL,
-        credit_limit REAL NOT NULL,
-        used_amount REAL NOT NULL DEFAULT 0,
-        billing_day INTEGER NOT NULL DEFAULT 1,
-        due_day INTEGER NOT NULL DEFAULT 15,
-        color INTEGER NOT NULL,
-        icon TEXT NOT NULL DEFAULT '💳',
-        note TEXT,
-        created_at TEXT NOT NULL
-      )
-    ''');
+    try {
+      _log('[DB] Creating V3 tables (credit cards)...');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS credit_cards (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          card_number_last4 TEXT NOT NULL,
+          credit_limit REAL NOT NULL,
+          used_amount REAL NOT NULL DEFAULT 0,
+          billing_day INTEGER NOT NULL DEFAULT 1,
+          due_day INTEGER NOT NULL DEFAULT 15,
+          color INTEGER NOT NULL,
+          icon TEXT NOT NULL DEFAULT 'card',
+          note TEXT,
+          created_at TEXT NOT NULL
+        )
+      ''');
+
+      _log('[DB] V3 tables created successfully');
+    } catch (e) {
+      _log('[DB] Error creating V3 tables: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _migrateIconKeys(DatabaseExecutor db) async {
+    final iconMap = {
+      '\u{1F4B0}': 'cash',
+      '\u{1F4B5}': 'cash',
+      '\u{1F3E6}': 'bank',
+      '\u{1F4B3}': 'card',
+      '\u{1F3E7}': 'atm',
+      '\u{1FA99}': 'coin',
+      '\u{1F4CA}': 'chart',
+      '\u{1F4C8}': 'trending_up',
+      '\u{1F354}': 'restaurant',
+      '\u{1F355}': 'pizza',
+      '\u{2615}': 'coffee',
+      '\u{1F697}': 'car',
+      '\u{2708}\u{FE0F}': 'flight',
+      '\u{1F3E0}': 'home',
+      '\u{1F6CD}\u{FE0F}': 'shopping',
+      '\u{1F4A1}': 'utilities',
+      '\u{1F3E5}': 'medical',
+      '\u{1F3AE}': 'gaming',
+      '\u{1F4DA}': 'books',
+      '\u{1F4E6}': 'box',
+      '\u{1F4BC}': 'work',
+      '\u{1F4BB}': 'computer',
+      '\u{1F381}': 'gift',
+      '\u{1F3B5}': 'music',
+      '\u{1F3CB}\u{FE0F}': 'fitness',
+      '\u{1F484}': 'beauty',
+      '\u{1F43E}': 'pets',
+      '\u{26FD}': 'fuel',
+      '\u{1F4F1}': 'phone',
+      '\u{1F377}': 'bar',
+      '\u{1F3AC}': 'movie',
+      '\u{1F310}': 'internet',
+      '\u{1F504}': 'transfer',
+    };
+
+    for (final entry in iconMap.entries) {
+      await db.update(
+        'categories',
+        {'icon': entry.value},
+        where: 'icon = ?',
+        whereArgs: [entry.key],
+      );
+      await db.update(
+        'accounts',
+        {'icon': entry.value},
+        where: 'icon = ?',
+        whereArgs: [entry.key],
+      );
+      await db.update(
+        'credit_cards',
+        {'icon': entry.value},
+        where: 'icon = ?',
+        whereArgs: [entry.key],
+      );
+    }
+  }
+
+  Future<void> _createV4Tables(Database db) async {
+    try {
+      _log('[DB] Creating V4 ledger fields...');
+
+      final transactionColumns = await db.rawQuery(
+        'PRAGMA table_info(transactions)',
+      );
+      final hasRelatedAccount = transactionColumns.any(
+        (column) => column['name'] == 'related_account_id',
+      );
+      if (!hasRelatedAccount) {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN related_account_id TEXT',
+        );
+      }
+
+      await _upsertTransferCategory(db);
+
+      _log('[DB] V4 ledger fields created successfully');
+    } catch (e) {
+      _log('[DB] Error creating V4 ledger fields: $e');
+      rethrow;
+    }
   }
 
   Future<void> _createV2Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS loans (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        principal_amount REAL NOT NULL,
-        outstanding_amount REAL NOT NULL,
-        interest_rate REAL NOT NULL,
-        tenure_months INTEGER NOT NULL,
-        emi_amount REAL NOT NULL,
-        emi_day INTEGER NOT NULL DEFAULT 1,
-        start_date TEXT NOT NULL,
-        end_date TEXT,
-        account_id TEXT,
-        auto_emi INTEGER NOT NULL DEFAULT 1,
-        note TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (account_id) REFERENCES accounts(id)
-      )
-    ''');
+    try {
+      _log('[DB] Creating V2 tables (loans, investments)...');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS investments (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        invested_amount REAL NOT NULL,
-        current_value REAL NOT NULL,
-        units REAL,
-        buy_price REAL,
-        current_price REAL,
-        start_date TEXT NOT NULL,
-        note TEXT,
-        created_at TEXT NOT NULL
-      )
-    ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS loans (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          principal_amount REAL NOT NULL,
+          outstanding_amount REAL NOT NULL,
+          interest_rate REAL NOT NULL,
+          tenure_months INTEGER NOT NULL,
+          emi_amount REAL NOT NULL,
+          emi_day INTEGER NOT NULL DEFAULT 1,
+          start_date TEXT NOT NULL,
+          end_date TEXT,
+          account_id TEXT,
+          auto_emi INTEGER NOT NULL DEFAULT 1,
+          note TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (account_id) REFERENCES accounts(id)
+        )
+      ''');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS investments (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          invested_amount REAL NOT NULL,
+          current_value REAL NOT NULL,
+          units REAL,
+          buy_price REAL,
+          current_price REAL,
+          start_date TEXT NOT NULL,
+          note TEXT,
+          created_at TEXT NOT NULL
+        )
+      ''');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS emi_log (
-        id TEXT PRIMARY KEY,
-        loan_id TEXT NOT NULL,
-        transaction_id TEXT NOT NULL,
-        month INTEGER NOT NULL,
-        year INTEGER NOT NULL,
-        FOREIGN KEY (loan_id) REFERENCES loans(id),
-        FOREIGN KEY (transaction_id) REFERENCES transactions(id)
-      )
-    ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
 
-    // Default currency
-    await db.insert('settings', {
-      'key': 'currency',
-      'value': 'INR',
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS emi_log (
+          id TEXT PRIMARY KEY,
+          loan_id TEXT NOT NULL,
+          transaction_id TEXT NOT NULL,
+          month INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          FOREIGN KEY (loan_id) REFERENCES loans(id),
+          FOREIGN KEY (transaction_id) REFERENCES transactions(id)
+        )
+      ''');
+
+      // Default currency
+      await db.insert('settings', {
+        'key': 'currency',
+        'value': 'INR',
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+      _log('[DB] V2 tables created successfully');
+    } catch (e) {
+      _log('[DB] Error creating V2 tables: $e');
+      rethrow;
+    }
   }
 
   Future<void> _insertDefaultData(Database db) async {
-    final now = DateTime.now().toIso8601String();
+    try {
+      _log('[DB] Inserting default data...');
+      final now = DateTime.now().toIso8601String();
 
-    final expenseCategories = [
-      {
-        'id': 'cat_food',
-        'name': 'Food & Dining',
-        'icon': '🍔',
-        'color': 0xFFFF6B6B,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_transport',
-        'name': 'Transport',
-        'icon': '🚗',
-        'color': 0xFF4ECDC4,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_shop',
-        'name': 'Shopping',
-        'icon': '🛍️',
-        'color': 0xFF45B7D1,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_bills',
-        'name': 'Bills & Utilities',
-        'icon': '💡',
-        'color': 0xFFF7DC6F,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_health',
-        'name': 'Health',
-        'icon': '🏥',
-        'color': 0xFF82E0AA,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_entertain',
-        'name': 'Entertainment',
-        'icon': '🎮',
-        'color': 0xFFBB8FCE,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_edu',
-        'name': 'Education',
-        'icon': '📚',
-        'color': 0xFFFF8C42,
-        'type': 'expense',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_other_exp',
-        'name': 'Other',
-        'icon': '📦',
-        'color': 0xFF95A5A6,
-        'type': 'expense',
-        'is_default': 1,
-      },
-    ];
+      final expenseCategories = [
+        {
+          'id': 'cat_food',
+          'name': 'Food & Dining',
+          'icon': 'restaurant',
+          'color': 0xFFFF6B6B,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_transport',
+          'name': 'Transport',
+          'icon': 'car',
+          'color': 0xFF4ECDC4,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_shop',
+          'name': 'Shopping',
+          'icon': 'shopping',
+          'color': 0xFF45B7D1,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_bills',
+          'name': 'Bills & Utilities',
+          'icon': 'utilities',
+          'color': 0xFFF7DC6F,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_health',
+          'name': 'Health',
+          'icon': 'medical',
+          'color': 0xFF82E0AA,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_entertain',
+          'name': 'Entertainment',
+          'icon': 'gaming',
+          'color': 0xFFBB8FCE,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_edu',
+          'name': 'Education',
+          'icon': 'books',
+          'color': 0xFFFF8C42,
+          'type': 'expense',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_other_exp',
+          'name': 'Other',
+          'icon': 'box',
+          'color': 0xFF95A5A6,
+          'type': 'expense',
+          'is_default': 1,
+        },
+      ];
 
-    final incomeCategories = [
-      {
-        'id': 'cat_salary',
-        'name': 'Salary',
-        'icon': '💼',
-        'color': 0xFF2ECC71,
-        'type': 'income',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_freelance',
-        'name': 'Freelance',
-        'icon': '💻',
-        'color': 0xFF3498DB,
-        'type': 'income',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_invest',
-        'name': 'Investment',
-        'icon': '📈',
-        'color': 0xFF1ABC9C,
-        'type': 'income',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_gift',
-        'name': 'Gift',
-        'icon': '🎁',
-        'color': 0xFFE91E63,
-        'type': 'income',
-        'is_default': 1,
-      },
-      {
-        'id': 'cat_other_inc',
-        'name': 'Other Income',
-        'icon': '💰',
-        'color': 0xFFF39C12,
-        'type': 'income',
-        'is_default': 1,
-      },
-    ];
+      final incomeCategories = [
+        {
+          'id': 'cat_salary',
+          'name': 'Salary',
+          'icon': 'work',
+          'color': 0xFF2ECC71,
+          'type': 'income',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_freelance',
+          'name': 'Freelance',
+          'icon': 'computer',
+          'color': 0xFF3498DB,
+          'type': 'income',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_invest',
+          'name': 'Investment',
+          'icon': 'trending_up',
+          'color': 0xFF1ABC9C,
+          'type': 'income',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_gift',
+          'name': 'Gift',
+          'icon': 'gift',
+          'color': 0xFFE91E63,
+          'type': 'income',
+          'is_default': 1,
+        },
+        {
+          'id': 'cat_other_inc',
+          'name': 'Other Income',
+          'icon': 'cash',
+          'color': 0xFFF39C12,
+          'type': 'income',
+          'is_default': 1,
+        },
+      ];
 
-    final batch = db.batch();
-    for (final cat in [...expenseCategories, ...incomeCategories]) {
-      batch.insert('categories', cat);
+      final batch = db.batch();
+      for (final cat in [...expenseCategories, ...incomeCategories]) {
+        batch.insert('categories', cat);
+      }
+      batch.insert('categories', _transferCategoryMap());
+
+      batch.insert('accounts', {
+        'id': 'acc_cash',
+        'name': 'Cash',
+        'balance': 0.0,
+        'color': 0xFF6C63FF,
+        'icon': 'cash',
+        'created_at': now,
+      });
+
+      batch.insert('accounts', {
+        'id': 'acc_bank',
+        'name': 'Bank Account',
+        'balance': 0.0,
+        'color': 0xFF4CAF50,
+        'icon': 'bank',
+        'created_at': now,
+      });
+
+      await batch.commit(noResult: true);
+      _log('[DB] Default data inserted successfully');
+    } catch (e) {
+      _log('[DB] Error inserting default data: $e');
+      rethrow;
     }
-
-    batch.insert('accounts', {
-      'id': 'acc_cash',
-      'name': 'Cash',
-      'balance': 0.0,
-      'color': 0xFF6C63FF,
-      'icon': '💵',
-      'created_at': now,
-    });
-
-    batch.insert('accounts', {
-      'id': 'acc_bank',
-      'name': 'Bank Account',
-      'balance': 0.0,
-      'color': 0xFF4CAF50,
-      'icon': '🏦',
-      'created_at': now,
-    });
-
-    await batch.commit(noResult: true);
   }
 
   // ─── TRANSACTIONS ────────────────────────────────────────────────────────
+
+  static Map<String, Object> _transferCategoryMap() {
+    return {
+      'id': 'cat_transfer',
+      'name': 'Transfer',
+      'icon': 'transfer',
+      'color': 0xFF6C63FF,
+      'type': 'both',
+      'is_default': 1,
+    };
+  }
+
+  Future<void> _upsertTransferCategory(DatabaseExecutor db) async {
+    await db.insert(
+      'categories',
+      _transferCategoryMap(),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  Map<String, double> _accountDeltasFor(TransactionModel tx) {
+    if (tx.type == 'transfer') {
+      if (tx.relatedAccountId == null || tx.relatedAccountId!.isEmpty) {
+        throw ArgumentError('Transfer transactions need a destination account');
+      }
+      if (tx.relatedAccountId == tx.accountId) {
+        throw ArgumentError('Transfer source and destination must differ');
+      }
+      return {tx.accountId: -tx.amount, tx.relatedAccountId!: tx.amount};
+    }
+
+    return {tx.accountId: tx.type == 'income' ? tx.amount : -tx.amount};
+  }
+
+  Future<void> _applyAccountDeltas(
+    Transaction txn,
+    Map<String, double> deltas,
+  ) async {
+    for (final entry in deltas.entries) {
+      await txn.rawUpdate(
+        'UPDATE accounts SET balance = balance + ? WHERE id = ?',
+        [entry.value, entry.key],
+      );
+    }
+  }
+
+  Map<String, double> _reverseDeltas(Map<String, double> deltas) {
+    return deltas.map((accountId, delta) => MapEntry(accountId, -delta));
+  }
 
   Future<List<TransactionModel>> getTransactions({
     DateTime? startDate,
@@ -509,12 +797,7 @@ class DatabaseService {
     final db = await database;
     await db.transaction((txn) async {
       await txn.insert('transactions', tx.toMap());
-
-      final delta = tx.type == 'income' ? tx.amount : -tx.amount;
-      await txn.rawUpdate(
-        'UPDATE accounts SET balance = balance + ? WHERE id = ?',
-        [delta, tx.accountId],
-      );
+      await _applyAccountDeltas(txn, _accountDeltasFor(tx));
 
       await _updateBudgetSpentInTxn(
         txn,
@@ -532,19 +815,8 @@ class DatabaseService {
   ) async {
     final db = await database;
     await db.transaction((txn) async {
-      // Reverse old balance
-      final oldDelta = oldTx.type == 'income' ? -oldTx.amount : oldTx.amount;
-      await txn.rawUpdate(
-        'UPDATE accounts SET balance = balance + ? WHERE id = ?',
-        [oldDelta, oldTx.accountId],
-      );
-
-      // Apply new balance
-      final newDelta = newTx.type == 'income' ? newTx.amount : -newTx.amount;
-      await txn.rawUpdate(
-        'UPDATE accounts SET balance = balance + ? WHERE id = ?',
-        [newDelta, newTx.accountId],
-      );
+      await _applyAccountDeltas(txn, _reverseDeltas(_accountDeltasFor(oldTx)));
+      await _applyAccountDeltas(txn, _accountDeltasFor(newTx));
 
       await txn.update(
         'transactions',
@@ -575,11 +847,7 @@ class DatabaseService {
   Future<void> deleteTransaction(TransactionModel tx) async {
     final db = await database;
     await db.transaction((txn) async {
-      final delta = tx.type == 'income' ? -tx.amount : tx.amount;
-      await txn.rawUpdate(
-        'UPDATE accounts SET balance = balance + ? WHERE id = ?',
-        [delta, tx.accountId],
-      );
+      await _applyAccountDeltas(txn, _reverseDeltas(_accountDeltasFor(tx)));
 
       await txn.delete('transactions', where: 'id = ?', whereArgs: [tx.id]);
       await _updateBudgetSpentInTxn(
