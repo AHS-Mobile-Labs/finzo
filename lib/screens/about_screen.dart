@@ -7,9 +7,17 @@ class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        // Fallback for Android - try launching with platform default
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      // Silent catch for unavailable apps
+      debugPrint('Could not launch URL: $e');
     }
   }
 
@@ -109,9 +117,41 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 10),
                 _ContactButton(
                   icon: Icons.code_rounded,
-                  label: 'GitHub',
-                  subtitle: 'github.com/ahsmobilelabs',
-                  url: 'https://github.com/ahsmobilelabs',
+                  label: 'GitHub - AHS Mobile Labs',
+                  subtitle: 'github.com/AHS-Mobile-Labs',
+                  url: 'https://github.com/AHS-Mobile-Labs',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.code_rounded,
+                  label: 'GitHub - Finzo',
+                  subtitle: 'github.com/AHS-Mobile-Labs/finzo',
+                  url: 'https://github.com/AHS-Mobile-Labs/finzo',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Instagram',
+                  subtitle: '@ahsmobilelabs',
+                  url: 'https://www.instagram.com/ahsmobilelabs',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.play_circle_outline_rounded,
+                  label: 'YouTube',
+                  subtitle: '@AHSMobileLabs',
+                  url: 'https://www.youtube.com/@AHSMobileLabs',
+                  onTap: _launchUrl,
+                ),
+                const SizedBox(height: 10),
+                _ContactButton(
+                  icon: Icons.tag_rounded,
+                  label: 'X (Twitter)',
+                  subtitle: '@ahsmobilelabs',
+                  url: 'https://x.com/ahsmobilelabs',
                   onTap: _launchUrl,
                 ),
                 const SizedBox(height: 10),
@@ -122,7 +162,7 @@ class AboutScreen extends StatelessWidget {
                   url: 'https://linktr.ee/ahsmobilelabs',
                   onTap: _launchUrl,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 18),
                 _LinktreeQrCard(
                   onTap: () => _launchUrl('https://linktr.ee/ahsmobilelabs'),
                 ),
@@ -263,60 +303,199 @@ class _LinktreeQrCard extends StatelessWidget {
 
   const _LinktreeQrCard({required this.onTap});
 
+  Future<void> _shareQrCode(BuildContext context) async {
+    try {
+      final uri = Uri.parse('https://linktr.ee/ahsmobilelabs');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Share error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         child: Ink(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: Colors.white.withAlpha(16)),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryColor.withAlpha(30),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          child: Row(
+          child: Column(
             children: [
+              // QR Code - made larger and more prominent
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'assets/app image/Linktree QR code/ahsmobilelabs.png',
-                  width: 86,
-                  height: 86,
-                  fit: BoxFit.cover,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withAlpha(50),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/app image/Linktree QR code/ahsmobilelabs.png',
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Scan Linktree',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+              const SizedBox(height: 20),
+              // Title and Description
+              const Column(
+                children: [
+                  Text(
+                    'AHS Mobile Labs',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Scan to explore all our projects and social media',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onTap,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.qr_code_2_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Open Link',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Open AHS Mobile Labs links from the QR code.',
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _shareQrCode(context),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withAlpha(30),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.share_rounded,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Share',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Linktree URL Text
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(6),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withAlpha(12)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.link_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'linktr.ee/ahsmobilelabs',
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: Colors.white70,
                         fontSize: 11,
-                        height: 1.35,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Icon(
-                Icons.qr_code_2_rounded,
-                color: AppTheme.primaryColor,
-                size: 22,
               ),
             ],
           ),
