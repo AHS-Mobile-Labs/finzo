@@ -33,7 +33,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/laucher_icon_img/F.png"
+  image_path: "assets/laucher_icon_img/In use/Finzo Logo.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/laucher_icon_img/In use/Finzo Logo.png
+    - assets/app image/Linktree QR code/ahsmobilelabs.png

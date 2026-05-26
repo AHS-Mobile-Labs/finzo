@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../models/account_model.dart';
 import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
 
 class AccountsScreen extends StatelessWidget {
@@ -193,7 +194,11 @@ class _AccountCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
-                child: Text(account.icon, style: const TextStyle(fontSize: 22)),
+                child: Icon(
+                  EmojiToIcon.getIcon(account.icon),
+                  color: color,
+                  size: 24,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -261,7 +266,7 @@ class _AccountSheet extends StatefulWidget {
 class _AccountSheetState extends State<_AccountSheet> {
   final _nameCtrl = TextEditingController();
   final _balanceCtrl = TextEditingController();
-  String _selectedIcon = '💵';
+  String _selectedIcon = 'cash';
   int _selectedColor = 0xFF6C63FF;
 
   bool get _isEditing => widget.existing != null;
@@ -338,9 +343,10 @@ class _AccountSheetState extends State<_AccountSheet> {
                     ),
                   ),
                   child: Center(
-                    child: Text(
-                      _selectedIcon,
-                      style: const TextStyle(fontSize: 32),
+                    child: Icon(
+                      EmojiToIcon.getIcon(_selectedIcon),
+                      color: Color(_selectedColor),
+                      size: 34,
                     ),
                   ),
                 ),
@@ -442,7 +448,11 @@ class _AccountSheetState extends State<_AccountSheet> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
-                        child: Text(icon, style: const TextStyle(fontSize: 26)),
+                        child: Icon(
+                          EmojiToIcon.getIcon(icon),
+                          color: AppTheme.primaryColor,
+                          size: 26,
+                        ),
                       ),
                     ),
                   ),

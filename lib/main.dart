@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'providers/finance_provider.dart';
 import 'screens/home_screen.dart';
@@ -19,7 +18,6 @@ void main() async {
   );
 
   if (Platform.isAndroid) {
-    await Permission.manageExternalStorage.request();
     await DatabaseService.migrateToPublicStorage();
   }
 

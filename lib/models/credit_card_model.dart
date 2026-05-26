@@ -20,7 +20,7 @@ class CreditCardModel {
     required this.billingDay,
     required this.dueDay,
     required this.color,
-    this.icon = '💳',
+    this.icon = 'card',
     this.note,
     required this.createdAt,
   });
@@ -40,7 +40,7 @@ class CreditCardModel {
       billingDay: map['billing_day'] as int,
       dueDay: map['due_day'] as int,
       color: map['color'] as int,
-      icon: (map['icon'] as String?) ?? '💳',
+      icon: (map['icon'] as String?) ?? 'card',
       note: map['note'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

@@ -53,6 +53,14 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photos and files to import finance data</string>
+	<key>NSPhotoLibraryAddOnlyUsageDescription</key>
+	<string>We need permission to save backup files</string>
+	<key>NSDocumentsUsageDescription</key>
+	<string>We need access to your documents folder to import and export finance files</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>We need local network access for file operations</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

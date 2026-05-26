@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/loan_model.dart';
 import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
 
 class LoansScreen extends StatelessWidget {
@@ -22,7 +23,11 @@ class LoansScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('🏦', style: TextStyle(fontSize: 64)),
+                  Icon(
+                    Icons.account_balance_rounded,
+                    size: 64,
+                    color: Colors.white54,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'No loans added yet',
@@ -195,10 +200,7 @@ class _LoanTile extends StatelessWidget {
                       color: color.withAlpha(38),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      loan.type.icon,
-                      style: const TextStyle(fontSize: 22),
-                    ),
+                    child: Icon(loan.type.iconData, color: color, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -589,8 +591,13 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
+                      avatar: Icon(
+                        t.iconData,
+                        color: selected ? Colors.white : Colors.white54,
+                        size: 16,
+                      ),
                       label: Text(
-                        '${t.icon} ${t.label}',
+                        t.label,
                         style: TextStyle(
                           fontSize: 12,
                           color: selected ? Colors.white : Colors.white54,
@@ -718,7 +725,17 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
                 ...accounts.map(
                   (a) => DropdownMenuItem(
                     value: a.id,
-                    child: Text('${a.icon} ${a.name}'),
+                    child: Row(
+                      children: [
+                        Icon(
+                          EmojiToIcon.getIcon(a.icon),
+                          color: Color(a.color),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(a.name),
+                      ],
+                    ),
                   ),
                 ),
               ],

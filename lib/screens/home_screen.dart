@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
+import '../services/database_service.dart';
 import '../utils/app_theme.dart';
+import '../widgets/quick_add_transaction_sheet.dart';
+import '../widgets/quick_tour_overlay.dart';
 import 'about_screen.dart';
 import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
@@ -22,6 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _showTour = false;
 
   final _screens = const [
     DashboardScreen(),
@@ -32,21 +37,55 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfShowTour();
+    });
+  }
+
+  Future<void> _checkIfShowTour() async {
+    final hasSeenTour = await DatabaseService.instance.getSetting('tour_seen');
+    if (hasSeenTour != 'true' && mounted) {
+      setState(() => _showTour = true);
+    }
+  }
+
+  Future<void> _completeTour() async {
+    await DatabaseService.instance.setSetting('tour_seen', 'true');
+    setState(() => _showTour = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final loading = context.watch<FinanceProvider>().isLoading;
 
     if (loading) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('💰', style: TextStyle(fontSize: 64)),
-              SizedBox(height: 24),
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
+              Icon(Icons.attach_money_rounded, size: 64, color: Colors.white)
+                  .animate(onPlay: (controller) => controller.repeat())
+                  .scale(
+                    begin: const Offset(.92, .92),
+                    end: const Offset(1.06, 1.06),
+                    duration: 900.ms,
+                    curve: Curves.easeInOut,
+                  )
+                  .then()
+                  .scale(
+                    begin: const Offset(1.06, 1.06),
+                    end: const Offset(.92, .92),
+                    duration: 900.ms,
+                    curve: Curves.easeInOut,
+                  ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text(
                 'Finzo',
                 style: TextStyle(
                   color: Colors.white70,
@@ -60,40 +99,62 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      drawer: _buildDrawer(context),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.white10)),
+    return Stack(
+      children: [
+        Scaffold(
+          body: IndexedStack(index: _currentIndex, children: _screens),
+          drawer: _buildDrawer(context),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                requestFocus: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const QuickAddTransactionSheet(),
+              );
+            },
+            backgroundColor: AppTheme.primaryColor,
+            child: const Icon(Icons.add_rounded, size: 28),
+          ),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (i) => setState(() => _currentIndex = i),
+            height: 72,
+            backgroundColor: AppTheme.surfaceColor,
+            indicatorColor: AppTheme.primaryColor.withAlpha(42),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard_rounded),
+                label: 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.swap_horiz_outlined),
+                selectedIcon: Icon(Icons.swap_horiz_rounded),
+                label: 'Transactions',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.donut_large_outlined),
+                selectedIcon: Icon(Icons.donut_large_rounded),
+                label: 'Budgets',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.insights_outlined),
+                selectedIcon: Icon(Icons.insights_rounded),
+                label: 'Analytics',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.account_balance_wallet_outlined),
+                selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                label: 'Accounts',
+              ),
+            ],
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.swap_horiz_rounded),
-              label: 'Transactions',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.pie_chart_rounded),
-              label: 'Budgets',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded),
-              label: 'Reports',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_rounded),
-              label: 'Accounts',
-            ),
-          ],
-        ),
-      ),
+        if (_showTour) QuickTourOverlay(onComplete: _completeTour),
+      ],
     );
   }
 
@@ -117,7 +178,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('💰', style: TextStyle(fontSize: 36)),
+                  Icon(
+                    Icons.attach_money_rounded,
+                    size: 36,
+                    color: Colors.white,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     provider.userName.isNotEmpty ? provider.userName : 'Finzo',

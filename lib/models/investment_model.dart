@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum InvestmentType {
   mutualFund,
   stocks,
@@ -37,23 +39,46 @@ extension InvestmentTypeExt on InvestmentType {
   String get icon {
     switch (this) {
       case InvestmentType.mutualFund:
-        return '📊';
+        return 'chart';
       case InvestmentType.stocks:
-        return '📈';
+        return 'trending_up';
       case InvestmentType.gold:
-        return '🥇';
+        return 'award';
       case InvestmentType.silver:
-        return '🥈';
+        return 'award';
       case InvestmentType.fixedDeposit:
-        return '🏦';
+        return 'bank';
       case InvestmentType.recurringDeposit:
-        return '🔄';
+        return 'refresh';
       case InvestmentType.ppf:
-        return '🏛️';
+        return 'bank';
       case InvestmentType.crypto:
-        return '₿';
+        return 'crypto';
       case InvestmentType.other:
-        return '💼';
+        return 'work';
+    }
+  }
+
+  IconData get iconData {
+    switch (this) {
+      case InvestmentType.mutualFund:
+        return Icons.bar_chart_rounded;
+      case InvestmentType.stocks:
+        return Icons.trending_up_rounded;
+      case InvestmentType.gold:
+        return Icons.emoji_events_rounded;
+      case InvestmentType.silver:
+        return Icons.emoji_events_rounded;
+      case InvestmentType.fixedDeposit:
+        return Icons.account_balance_rounded;
+      case InvestmentType.recurringDeposit:
+        return Icons.refresh_rounded;
+      case InvestmentType.ppf:
+        return Icons.account_balance_wallet_rounded;
+      case InvestmentType.crypto:
+        return Icons.currency_bitcoin_rounded;
+      case InvestmentType.other:
+        return Icons.work_rounded;
     }
   }
 

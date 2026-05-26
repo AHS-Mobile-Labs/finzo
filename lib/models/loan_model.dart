@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum LoanType {
   overdraft,
   unsecured,
@@ -34,21 +36,42 @@ extension LoanTypeExt on LoanType {
   String get icon {
     switch (this) {
       case LoanType.overdraft:
-        return '🏧';
+        return 'atm';
       case LoanType.unsecured:
-        return '📋';
+        return 'assignment';
       case LoanType.secured:
-        return '🔒';
+        return 'lock';
       case LoanType.carLoan:
-        return '🚗';
+        return 'car';
       case LoanType.goldLoan:
-        return '🥇';
+        return 'award';
       case LoanType.homeLoan:
-        return '🏠';
+        return 'home';
       case LoanType.educationLoan:
-        return '🎓';
+        return 'school';
       case LoanType.other:
-        return '💳';
+        return 'card';
+    }
+  }
+
+  IconData get iconData {
+    switch (this) {
+      case LoanType.overdraft:
+        return Icons.atm_rounded;
+      case LoanType.unsecured:
+        return Icons.assignment_rounded;
+      case LoanType.secured:
+        return Icons.lock_rounded;
+      case LoanType.carLoan:
+        return Icons.directions_car_rounded;
+      case LoanType.goldLoan:
+        return Icons.emoji_events_rounded;
+      case LoanType.homeLoan:
+        return Icons.home_rounded;
+      case LoanType.educationLoan:
+        return Icons.school_rounded;
+      case LoanType.other:
+        return Icons.credit_card_rounded;
     }
   }
 

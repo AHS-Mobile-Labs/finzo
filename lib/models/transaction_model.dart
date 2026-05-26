@@ -2,9 +2,10 @@ class TransactionModel {
   final String id;
   final String title;
   final double amount;
-  final String type; // 'income' or 'expense'
+  final String type; // 'income', 'expense', or 'transfer'
   final String categoryId;
   final String accountId;
+  final String? relatedAccountId;
   final DateTime date;
   final String? note;
   final DateTime createdAt;
@@ -16,6 +17,7 @@ class TransactionModel {
     required this.type,
     required this.categoryId,
     required this.accountId,
+    this.relatedAccountId,
     required this.date,
     this.note,
     required this.createdAt,
@@ -29,6 +31,7 @@ class TransactionModel {
       type: map['type'] as String,
       categoryId: map['category_id'] as String,
       accountId: map['account_id'] as String,
+      relatedAccountId: map['related_account_id'] as String?,
       date: DateTime.parse(map['date'] as String),
       note: map['note'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
@@ -43,6 +46,7 @@ class TransactionModel {
       'type': type,
       'category_id': categoryId,
       'account_id': accountId,
+      'related_account_id': relatedAccountId,
       'date': date.toIso8601String(),
       'note': note,
       'created_at': createdAt.toIso8601String(),
@@ -56,6 +60,7 @@ class TransactionModel {
     String? type,
     String? categoryId,
     String? accountId,
+    String? relatedAccountId,
     DateTime? date,
     String? note,
   }) {
@@ -66,6 +71,7 @@ class TransactionModel {
       type: type ?? this.type,
       categoryId: categoryId ?? this.categoryId,
       accountId: accountId ?? this.accountId,
+      relatedAccountId: relatedAccountId ?? this.relatedAccountId,
       date: date ?? this.date,
       note: note ?? this.note,
       createdAt: createdAt,
