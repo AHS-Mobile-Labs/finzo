@@ -1,7 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/app_theme.dart';
+import '../widgets/app_logo.dart';
+
+const _linktreeUrl = 'https://linktr.ee/ahsmobilelabs';
+const _linktreeQrAsset = 'assets/app image/Linktree QR code/ahsmobilelabs.png';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -29,151 +38,160 @@ class AboutScreen extends StatelessWidget {
         slivers: [
           SliverAppBar(
             pinned: true,
+            toolbarHeight: 64,
             expandedHeight: 220,
             backgroundColor: AppTheme.backgroundColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-              title: const Text(
-                'About Finzo',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              background: const _HeroHeader(),
+            surfaceTintColor: Colors.transparent,
+            titleSpacing: 0,
+            title: const Text(
+              'About Finzo',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            flexibleSpace: const FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: _HeroHeader(),
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-            sliver: SliverList.list(
-              children: [
-                const _PrivacyCard()
-                    .animate()
-                    .fadeIn(duration: 280.ms)
-                    .slideY(begin: .08, end: 0),
-                const SizedBox(height: 18),
-                const _SectionTitle('Built For'),
-                const SizedBox(height: 10),
-                const Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _FeatureChip(
-                      icon: Icons.account_balance_wallet_rounded,
-                      label: 'Accounts',
-                    ),
-                    _FeatureChip(
-                      icon: Icons.swap_horiz_rounded,
-                      label: 'Transfers',
-                    ),
-                    _FeatureChip(
-                      icon: Icons.pie_chart_rounded,
-                      label: 'Budgets',
-                    ),
-                    _FeatureChip(
-                      icon: Icons.insights_rounded,
-                      label: 'Analytics',
-                    ),
-                    _FeatureChip(
-                      icon: Icons.credit_card_rounded,
-                      label: 'Cards',
-                    ),
-                    _FeatureChip(
-                      icon: Icons.trending_up_rounded,
-                      label: 'Investing',
-                    ),
-                    _FeatureChip(
-                      icon: Icons.account_balance_rounded,
-                      label: 'Loans',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('Principles'),
-                const SizedBox(height: 10),
-                const _PrincipleTile(
-                  icon: Icons.offline_bolt_rounded,
-                  title: 'Offline first',
-                  body: 'Your finance book stays local and available anytime.',
-                ),
-                const _PrincipleTile(
-                  icon: Icons.lock_rounded,
-                  title: 'Privacy focused',
-                  body: 'No cloud account is required for everyday tracking.',
-                ),
-                const _PrincipleTile(
-                  icon: Icons.auto_graph_rounded,
-                  title: 'Decision ready',
-                  body:
-                      'Dashboards, budgets, loans, cards, and investments stay connected.',
-                ),
-                const SizedBox(height: 24),
-                const _SectionTitle('Connect'),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.mail_outline_rounded,
-                  label: 'Email',
-                  subtitle: 'ahsmobilelabs@gmail.com',
-                  url: 'mailto:ahsmobilelabs@gmail.com',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.code_rounded,
-                  label: 'GitHub - AHS Mobile Labs',
-                  subtitle: 'github.com/AHS-Mobile-Labs',
-                  url: 'https://github.com/AHS-Mobile-Labs',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.code_rounded,
-                  label: 'GitHub - Finzo',
-                  subtitle: 'github.com/AHS-Mobile-Labs/finzo',
-                  url: 'https://github.com/AHS-Mobile-Labs/finzo',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.camera_alt_rounded,
-                  label: 'Instagram',
-                  subtitle: '@ahsmobilelabs',
-                  url: 'https://www.instagram.com/ahsmobilelabs',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.play_circle_outline_rounded,
-                  label: 'YouTube',
-                  subtitle: '@AHSMobileLabs',
-                  url: 'https://www.youtube.com/@AHSMobileLabs',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.tag_rounded,
-                  label: 'X (Twitter)',
-                  subtitle: '@ahsmobilelabs',
-                  url: 'https://x.com/ahsmobilelabs',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 10),
-                _ContactButton(
-                  icon: Icons.link_rounded,
-                  label: 'Linktree',
-                  subtitle: 'All project links',
-                  url: 'https://linktr.ee/ahsmobilelabs',
-                  onTap: _launchUrl,
-                ),
-                const SizedBox(height: 18),
-                _LinktreeQrCard(
-                  onTap: () => _launchUrl('https://linktr.ee/ahsmobilelabs'),
-                ),
-                const SizedBox(height: 28),
-                const Center(
-                  child: Text(
-                    'Finzo v1.0.0  |  AHS Mobile Labs',
-                    style: TextStyle(color: Colors.white38, fontSize: 12),
+            padding: EdgeInsets.fromLTRB(
+              MediaQuery.sizeOf(context).width < 360 ? 16 : 20,
+              18,
+              MediaQuery.sizeOf(context).width < 360 ? 16 : 20,
+              28,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _PrivacyCard()
+                          .animate()
+                          .fadeIn(duration: 280.ms)
+                          .slideY(begin: .08, end: 0),
+                      const SizedBox(height: 18),
+                      const _SectionTitle('Built For'),
+                      const SizedBox(height: 10),
+                      const Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _FeatureChip(
+                            icon: Icons.account_balance_wallet_rounded,
+                            label: 'Accounts',
+                          ),
+                          _FeatureChip(
+                            icon: Icons.swap_horiz_rounded,
+                            label: 'Transfers',
+                          ),
+                          _FeatureChip(
+                            icon: Icons.pie_chart_rounded,
+                            label: 'Budgets',
+                          ),
+                          _FeatureChip(
+                            icon: Icons.insights_rounded,
+                            label: 'Analytics',
+                          ),
+                          _FeatureChip(
+                            icon: Icons.credit_card_rounded,
+                            label: 'Cards',
+                          ),
+                          _FeatureChip(
+                            icon: Icons.trending_up_rounded,
+                            label: 'Investing',
+                          ),
+                          _FeatureChip(
+                            icon: Icons.account_balance_rounded,
+                            label: 'Loans',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      const _SectionTitle('Principles'),
+                      const SizedBox(height: 10),
+                      const _PrincipleTile(
+                        icon: Icons.offline_bolt_rounded,
+                        title: 'Offline first',
+                        body:
+                            'Your finance book stays local and available anytime.',
+                      ),
+                      const _PrincipleTile(
+                        icon: Icons.lock_rounded,
+                        title: 'Privacy focused',
+                        body:
+                            'No cloud account is required for everyday tracking.',
+                      ),
+                      const _PrincipleTile(
+                        icon: Icons.auto_graph_rounded,
+                        title: 'Decision ready',
+                        body:
+                            'Dashboards, budgets, loans, cards, and investments stay connected.',
+                      ),
+                      const SizedBox(height: 24),
+                      const _SectionTitle('Connect'),
+                      const SizedBox(height: 10),
+                      _ContactButton(
+                        icon: Icons.mail_outline_rounded,
+                        label: 'Email',
+                        subtitle: 'ahsmobilelabs@gmail.com',
+                        url: 'mailto:ahsmobilelabs@gmail.com',
+                        onTap: _launchUrl,
+                      ),
+                      const SizedBox(height: 10),
+                      _ContactButton(
+                        icon: Icons.code_rounded,
+                        label: 'GitHub - AHS Mobile Labs',
+                        subtitle: 'github.com/AHS-Mobile-Labs',
+                        url: 'https://github.com/AHS-Mobile-Labs',
+                        onTap: _launchUrl,
+                      ),
+                      const SizedBox(height: 10),
+                      _ContactButton(
+                        icon: Icons.code_rounded,
+                        label: 'GitHub - Finzo',
+                        subtitle: 'github.com/AHS-Mobile-Labs/finzo',
+                        url: 'https://github.com/AHS-Mobile-Labs/finzo',
+                        onTap: _launchUrl,
+                      ),
+                      const SizedBox(height: 10),
+                      _ContactButton(
+                        icon: Icons.camera_alt_rounded,
+                        label: 'Instagram',
+                        subtitle: '@ahsmobilelabs',
+                        url: 'https://www.instagram.com/ahsmobilelabs',
+                        onTap: _launchUrl,
+                      ),
+                      const SizedBox(height: 10),
+                      _ContactButton(
+                        icon: Icons.play_circle_outline_rounded,
+                        label: 'YouTube',
+                        subtitle: '@AHSMobileLabs',
+                        url: 'https://www.youtube.com/@AHSMobileLabs',
+                        onTap: _launchUrl,
+                      ),
+                      const SizedBox(height: 10),
+                      _ContactButton(
+                        icon: Icons.tag_rounded,
+                        label: 'X (Twitter)',
+                        subtitle: '@ahsmobilelabs',
+                        url: 'https://x.com/ahsmobilelabs',
+                        onTap: _launchUrl,
+                      ),
+                      const SizedBox(height: 18),
+                      const _LinktreeQrCard(),
+                      const SizedBox(height: 28),
+                      const Center(
+                        child: Text(
+                          'Finzo v1.0.0  |  AHS Mobile Labs',
+                          style: TextStyle(color: Colors.white38, fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -187,85 +205,59 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = width < 360 ? 16.0 : 20.0;
+
+    return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF090D18), Color(0xFF241044), Color(0xFF0F172A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.surfaceColor,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -38,
-            top: 28,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryColor.withAlpha(46),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withAlpha(90),
-                    blurRadius: 80,
-                  ),
-                ],
-              ),
-            ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            76,
+            horizontalPadding,
+            22,
           ),
-          Positioned(
-            left: 20,
-            top: 84,
+          child: Align(
+            alignment: Alignment.bottomLeft,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.primaryColor, Color(0xFF38BDF8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primaryColor.withAlpha(90),
-                        blurRadius: 26,
-                        offset: const Offset(0, 12),
+                const AppLogo(size: 64, radius: 18),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Finzo',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Private finance, beautifully offline',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white60, fontSize: 12),
                       ),
                     ],
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.asset(
-                    'assets/laucher_icon_img/In use/Finzo Logo.png',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Finzo',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      'Private finance, beautifully offline',
-                      style: TextStyle(color: Colors.white60, fontSize: 12),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -299,207 +291,144 @@ class _PrivacyCard extends StatelessWidget {
 }
 
 class _LinktreeQrCard extends StatelessWidget {
-  final VoidCallback onTap;
+  static const _shareChannel = MethodChannel('com.ahsmobilelabs.finzo/share');
 
-  const _LinktreeQrCard({required this.onTap});
+  const _LinktreeQrCard();
 
   Future<void> _shareQrCode(BuildContext context) async {
     try {
-      final uri = Uri.parse('https://linktr.ee/ahsmobilelabs');
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sharing QR images is available on mobile.'),
+          ),
+        );
+        return;
       }
+
+      final tempDir = await getTemporaryDirectory();
+      final shareDir = Directory(p.join(tempDir.path, 'finzo-share'));
+      if (!await shareDir.exists()) {
+        await shareDir.create(recursive: true);
+      }
+
+      final data = await rootBundle.load(_linktreeQrAsset);
+      final imageFile = File(p.join(shareDir.path, 'ahsmobilelabs-qr.png'));
+      await imageFile.writeAsBytes(
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        flush: true,
+      );
+
+      await _shareChannel.invokeMethod<void>('shareLinktreeQr', {
+        'text': 'AHS Mobile Labs\n$_linktreeUrl',
+        'imagePath': imageFile.path,
+      });
+    } on PlatformException catch (e) {
+      debugPrint('Share platform error: ${e.message}');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Unable to open the share sheet.')),
+      );
     } catch (e) {
       debugPrint('Share error: $e');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to share the QR code.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Ink(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withAlpha(16)),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withAlpha(30),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              color: Colors.white,
+              child: Image.asset(
+                _linktreeQrAsset,
+                width: 180,
+                height: 180,
+                fit: BoxFit.cover,
               ),
-            ],
+            ),
           ),
-          child: Column(
-            children: [
-              // QR Code - made larger and more prominent
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primaryColor.withAlpha(50),
-                        blurRadius: 16,
-                      ),
-                    ],
-                  ),
-                  child: Image.asset(
-                    'assets/app image/Linktree QR code/ahsmobilelabs.png',
-                    width: 180,
-                    height: 180,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Title and Description
-              const Column(
-                children: [
-                  Text(
-                    'AHS Mobile Labs',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Scan to explore all our projects and social media',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Action Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: onTap,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.qr_code_2_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Open Link',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _shareQrCode(context),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withAlpha(30),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.share_rounded,
-                                color: Colors.white70,
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Share',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Linktree URL Text
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(6),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withAlpha(12)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.link_rounded,
-                      color: AppTheme.primaryColor,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'linktr.ee/ahsmobilelabs',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const SizedBox(height: 20),
+          const Text(
+            'AHS Mobile Labs',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          const Text(
+            'Scan or share the QR code with the project link.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _shareQrCode(context),
+              icon: const Icon(Icons.share_rounded, size: 18),
+              label: const Text('Share Link and QR'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(6),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withAlpha(12)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.link_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 14,
+                ),
+                SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'linktr.ee/ahsmobilelabs',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

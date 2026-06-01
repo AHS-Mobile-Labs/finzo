@@ -123,7 +123,6 @@ finzo/
 - **UI Animations**: flutter_animate
 - **File Handling**: file_picker
 - **URL Handling**: url_launcher
-- **Permissions**: permission_handler
 - **Path Management**: path_provider
 
 ## 📖 Documentation
@@ -145,7 +144,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 Stay updated and connected with AHS Mobile Labs:
 
 - 📧 **Email**: [ahsmobilelabs@gmail.com](mailto:ahsmobilelabs@gmail.com)
-- 🔗 **Linktree**: [linktr.ee/ahsmobilelabs](https://linktr.ee/ahsmobilelabs)
 - 💻 **GitHub**: [@AHS-Mobile-Labs](https://github.com/AHS-Mobile-Labs)
 - 📸 **Instagram**: [@ahsmobilelabs](https://www.instagram.com/ahsmobilelabs)
 - 🎥 **YouTube**: [@AHSMobileLabs](https://www.youtube.com/@AHSMobileLabs)
@@ -164,4 +162,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [⬆ back to top](#finzo)
 
 </div>
-

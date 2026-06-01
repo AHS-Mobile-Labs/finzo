@@ -1,0 +1,28 @@
+Finzo Android Release Signing
+
+Keystore file name:
+finzo-release.jks
+
+Alias:
+finzo
+
+Password handling:
+Do not commit android/key.properties or the .jks/.keystore file. Both are ignored by git.
+Copy android/key.properties.example to android/key.properties and replace the password placeholders locally, or provide these environment variables in CI:
+
+FINZO_KEYSTORE_FILE
+FINZO_KEYSTORE_PASSWORD
+FINZO_KEY_ALIAS
+FINZO_KEY_PASSWORD
+
+Create a release keystore:
+keytool -genkeypair -v -keystore android/finzo-release.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias finzo
+
+Local signing steps:
+1. Create the keystore with the command above.
+2. Copy android/key.properties.example to android/key.properties.
+3. Set storeFile=finzo-release.jks, keyAlias=finzo, and your private passwords.
+4. Build a signed APK with flutter build apk --release.
+5. Build a signed app bundle with flutter build appbundle --release.
+
+Release builds intentionally fail until signing values are supplied, so a production build is not accidentally shipped with debug signing.

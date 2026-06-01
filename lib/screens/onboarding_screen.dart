@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../services/database_service.dart';
 import '../utils/app_theme.dart';
+import '../widgets/app_logo.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -29,17 +29,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<bool> _requestStoragePermission() async {
-    final status = await Permission.storage.request();
-    return status.isGranted || status.isDenied;
-  }
-
   Future<void> _importBook() async {
     setState(() => _isProcessing = true);
     try {
-      // Request storage permission
-      await _requestStoragePermission();
-
       final result = await FilePicker.platform.pickFiles(type: FileType.any);
       if (result == null || result.files.single.path == null) {
         setState(() => _isProcessing = false);
@@ -100,9 +92,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: _buildStep(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _buildStep(),
+            ),
+          ),
         ),
       ),
     );
@@ -138,7 +135,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 48),
-          Icon(Icons.attach_money_rounded, size: 72, color: Colors.white),
+          const AppLogo(size: 76, radius: 22),
           const SizedBox(height: 24),
           const Text(
             'Welcome to Finzo',

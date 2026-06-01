@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -18,6 +19,9 @@ class DatabaseService {
   static String? _currentBookName;
   static bool _isInitializing = false;
   static Completer<Database>? _initCompleter;
+  static const MethodChannel _storageChannel = MethodChannel(
+    'com.ahsmobilelabs.finzo/storage',
+  );
 
   DatabaseService._();
   static DatabaseService get instance => _instance ??= DatabaseService._();
@@ -80,58 +84,128 @@ class DatabaseService {
     }
   }
 
-  /// Returns the Finzo directory
-  /// On Android: Uses app-specific external cache directory (no special permissions needed)
-  /// On other platforms: Uses app documents directory
+  /// Returns Finzo's database directory.
+  ///
+  /// Android first tries the shared device Documents folder so the database is
+  /// outside Android/data. iOS uses the app Documents folder, which is exposed
+  /// in Files through Info.plist.
   static Future<String> get finzoDir async {
-    try {
-      Directory dir;
+    final preferredDir = await _preferredDocumentsDirectory();
+    if (preferredDir != null && await _ensureWritable(preferredDir)) {
+      _log('[DB] Using Finzo documents directory: ${preferredDir.path}');
+      return preferredDir.path;
+    }
 
-      if (Platform.isAndroid) {
-        // Use cache directory on Android (app-specific, no special permissions needed)
-        final cache = await getApplicationCacheDirectory();
-        dir = Directory(p.join(cache.parent.path, 'files', 'finzo'));
-        _log('[DB] Using Android app-specific storage: ${dir.path}');
-      } else {
-        // Use documents directory for iOS and other platforms
-        final docs = await getApplicationDocumentsDirectory();
-        dir = Directory(p.join(docs.path, 'finzo'));
-        _log('[DB] Using app documents directory: ${dir.path}');
+    final fallbackDir = await _fallbackDocumentsDirectory();
+    if (await _ensureWritable(fallbackDir)) {
+      _log('[DB] Using fallback documents directory: ${fallbackDir.path}');
+      return fallbackDir.path;
+    }
+
+    throw FileSystemException(
+      'Unable to create a writable Finzo database directory',
+      fallbackDir.path,
+    );
+  }
+
+  static Future<Directory?> _preferredDocumentsDirectory() async {
+    if (Platform.isAndroid) {
+      try {
+        final root = await _storageChannel.invokeMethod<String>(
+          'getDocumentsDirectory',
+        );
+        if (root != null && root.trim().isNotEmpty) {
+          return Directory(p.join(root, 'Finzo'));
+        }
+      } on MissingPluginException catch (e) {
+        _log('[DB] Android documents channel missing: $e');
+      } on PlatformException catch (e) {
+        _log('[DB] Android documents directory unavailable: ${e.message}');
+      } catch (e) {
+        _log('[DB] Error resolving Android documents directory: $e');
       }
+    }
 
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-        _log('[DB] Created finzo directory: ${dir.path}');
-      }
-
-      return dir.path;
-    } catch (e) {
-      _log('[DB] Error accessing finzo directory: $e');
-
-      // Final fallback: use app documents directory
+    if (Platform.isIOS) {
       final docs = await getApplicationDocumentsDirectory();
-      final dir = Directory(p.join(docs.path, 'finzo'));
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      _log('[DB] Using fallback documents directory: ${dir.path}');
-      return dir.path;
+      return Directory(p.join(docs.path, 'Finzo'));
+    }
+
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      return Directory(p.join(docs.path, 'Finzo'));
+    } catch (e) {
+      _log('[DB] Preferred documents directory unavailable: $e');
+      return null;
     }
   }
 
-  /// Migrate data from previous Android storage locations into the active
-  /// app-specific storage directory. Sources are left in place as a backup.
-  static Future<void> migrateToPublicStorage() async {
-    if (!Platform.isAndroid) return;
+  static Future<Directory> _fallbackDocumentsDirectory() async {
+    final docs = await getApplicationDocumentsDirectory();
+    return Directory(p.join(docs.path, 'Finzo'));
+  }
 
+  static Future<bool> _ensureWritable(Directory dir) async {
+    try {
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+        _log('[DB] Created Finzo directory: ${dir.path}');
+      }
+
+      final probe = File(p.join(dir.path, '.finzo_write_test'));
+      await probe.writeAsString(DateTime.now().toIso8601String(), flush: true);
+      if (await probe.exists()) {
+        await probe.delete();
+      }
+      return true;
+    } catch (e) {
+      _log('[DB] Directory is not writable (${dir.path}): $e');
+      return false;
+    }
+  }
+
+  /// Migrate data from older app-scoped locations into the active documents
+  /// directory.
+  static Future<void> migrateToDocumentsStorage() async {
     final targetDir = Directory(await finzoDir);
-    final oldDocs = await getApplicationDocumentsDirectory();
-    final sources = [
-      Directory(p.join(oldDocs.path, 'finzo')),
-      Directory('/storage/emulated/0/Documents/finzo'),
-    ];
+    final targetPath = p.normalize(targetDir.path);
+    final sources = <Directory>[];
+
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      sources.add(Directory(p.join(docs.path, 'finzo')));
+      sources.add(Directory(p.join(docs.path, 'Finzo')));
+    } catch (e) {
+      _log('[DB] Could not inspect legacy documents directory: $e');
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        final cache = await getApplicationCacheDirectory();
+        sources.add(Directory(p.join(cache.parent.path, 'files', 'finzo')));
+        sources.add(Directory(p.join(cache.parent.path, 'files', 'Finzo')));
+      } catch (e) {
+        _log('[DB] Could not inspect legacy files directory: $e');
+      }
+
+      try {
+        final externalDirs = await getExternalStorageDirectories(
+          type: StorageDirectory.documents,
+        );
+        for (final externalDir in externalDirs ?? const <Directory>[]) {
+          sources.add(Directory(p.join(externalDir.path, 'finzo')));
+          sources.add(Directory(p.join(externalDir.path, 'Finzo')));
+        }
+      } catch (e) {
+        _log('[DB] Could not inspect app-specific external directory: $e');
+      }
+    }
+
+    final seen = <String>{targetPath};
 
     for (final sourceDir in sources) {
+      final sourcePath = p.normalize(sourceDir.path);
+      if (!seen.add(sourcePath)) continue;
       if (!await sourceDir.exists()) continue;
 
       await for (final entity in sourceDir.list()) {
@@ -147,6 +221,8 @@ class DatabaseService {
       }
     }
   }
+
+  static Future<void> migrateToAppStorage() => migrateToDocumentsStorage();
 
   /// Check if onboarding is complete (marker file in finzo dir)
   static Future<bool> isOnboarded() async {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../services/database_service.dart';
 import '../utils/app_theme.dart';
+import '../widgets/app_logo.dart';
 import '../widgets/quick_add_transaction_sheet.dart';
 import '../widgets/quick_tour_overlay.dart';
 import 'about_screen.dart';
@@ -67,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.attach_money_rounded, size: 64, color: Colors.white)
+              const AppLogo(size: 72, radius: 22)
                   .animate(onPlay: (controller) => controller.repeat())
                   .scale(
                     begin: const Offset(.92, .92),
@@ -99,6 +100,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final compactNav = MediaQuery.sizeOf(context).width < 390;
+
     return Stack(
       children: [
         Scaffold(
@@ -123,7 +126,9 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 72,
             backgroundColor: AppTheme.surfaceColor,
             indicatorColor: AppTheme.primaryColor.withAlpha(42),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            labelBehavior: compactNav
+                ? NavigationDestinationLabelBehavior.onlyShowSelected
+                : NavigationDestinationLabelBehavior.alwaysShow,
             destinations: const [
               NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),
@@ -160,109 +165,138 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDrawer(BuildContext context) {
     final provider = context.watch<FinanceProvider>();
+    final width = MediaQuery.sizeOf(context).width;
     return Drawer(
+      width: width >= 420 ? 360 : width * .86,
       backgroundColor: AppTheme.surfaceColor,
       child: SafeArea(
         child: Column(
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF3B82F6)],
+                  colors: [Color(0xFF1F2937), Color(0xFF273469)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.attach_money_rounded,
-                    size: 36,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    provider.userName.isNotEmpty ? provider.userName : 'Finzo',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                  const AppLogo(size: 54, radius: 16),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          provider.userName.isNotEmpty
+                              ? provider.userName
+                              : 'Finzo',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Currency: ${provider.currency.symbol} (${provider.currency.code})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Currency: ${provider.currency.symbol} (${provider.currency.code})',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
-            _DrawerItem(
-              icon: Icons.credit_card_rounded,
-              title: 'Credit Cards',
-              subtitle: '${provider.creditCards.length} cards',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CreditCardsScreen()),
-                );
-              },
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  _DrawerItem(
+                    icon: Icons.credit_card_rounded,
+                    title: 'Credit Cards',
+                    subtitle: '${provider.creditCards.length} cards',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CreditCardsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.account_balance_rounded,
+                    title: 'Loans',
+                    subtitle: '${provider.loans.length} active loans',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoansScreen()),
+                      );
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.trending_up_rounded,
+                    title: 'Investments',
+                    subtitle: '${provider.investments.length} investments',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const InvestmentsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(
+                    color: Colors.white12,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.settings_rounded,
+                    title: 'Settings',
+                    subtitle: 'Currency, preferences',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.info_rounded,
+                    title: 'About',
+                    subtitle: 'About Finzo',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AboutScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-            _DrawerItem(
-              icon: Icons.account_balance_rounded,
-              title: 'Loans',
-              subtitle: '${provider.loans.length} active loans',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoansScreen()),
-                );
-              },
-            ),
-            _DrawerItem(
-              icon: Icons.trending_up_rounded,
-              title: 'Investments',
-              subtitle: '${provider.investments.length} investments',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const InvestmentsScreen()),
-                );
-              },
-            ),
-            const Divider(color: Colors.white12, indent: 16, endIndent: 16),
-            _DrawerItem(
-              icon: Icons.settings_rounded,
-              title: 'Settings',
-              subtitle: 'Currency, preferences',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                );
-              },
-            ),
-            _DrawerItem(
-              icon: Icons.info_rounded,
-              title: 'About',
-              subtitle: 'About Finzo',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AboutScreen()),
-                );
-              },
-            ),
-            const Spacer(),
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
@@ -293,7 +327,13 @@ class _DrawerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      minLeadingWidth: 44,
+      horizontalTitleGap: 12,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: AppTheme.primaryColor.withAlpha(30),
