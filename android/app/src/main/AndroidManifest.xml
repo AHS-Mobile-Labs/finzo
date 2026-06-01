@@ -1,12 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <application
         android:label="Finzo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
@@ -35,6 +39,15 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.shareprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -57,7 +70,11 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.SEND"/>
-            <data android:mimeType="text/plain"/>
+            <data android:mimeType="image/png"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="mailto"/>
         </intent>
     </queries>
 </manifest>

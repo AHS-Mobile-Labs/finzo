@@ -21,7 +21,6 @@ dependencies:
   flutter_animate: ^4.5.0
   path_provider: ^2.1.5
   file_picker: ^8.3.7
-  permission_handler: ^11.3.0
   url_launcher: ^6.2.0
 
 dev_dependencies:
@@ -34,6 +33,10 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/laucher_icon_img/In use/Finzo Logo.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/laucher_icon_img/In use/Finzo Logo.png"
+  remove_alpha_ios: true
+  background_color_ios: "#000000"
 
 flutter:
   uses-material-design: true

@@ -181,8 +181,11 @@ class _DatabaseSection extends StatelessWidget {
                 color: AppTheme.primaryColor.withAlpha(38),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.storage_rounded,
-                  color: AppTheme.primaryColor, size: 22),
+              child: const Icon(
+                Icons.storage_rounded,
+                color: AppTheme.primaryColor,
+                size: 22,
+              ),
             ),
             title: Text(
               provider.currentBookName,
@@ -200,18 +203,25 @@ class _DatabaseSection extends StatelessWidget {
                 return const SizedBox.shrink();
               }
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.folder_outlined,
-                        color: Colors.white38, size: 14),
+                    const Icon(
+                      Icons.folder_outlined,
+                      color: Colors.white38,
+                      size: 14,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         snap.data!,
                         style: const TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -223,30 +233,36 @@ class _DatabaseSection extends StatelessWidget {
           ),
           const Divider(color: Colors.white12, height: 1),
           ListTile(
-            leading: const Icon(Icons.swap_horiz_rounded,
-                color: Colors.white54, size: 20),
-            title: const Text('Switch Book',
-                style: TextStyle(fontSize: 14)),
-            trailing:
-                const Icon(Icons.chevron_right, color: Colors.white38),
+            leading: const Icon(
+              Icons.swap_horiz_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text('Switch Book', style: TextStyle(fontSize: 14)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _showSwitchBookSheet(context),
           ),
           ListTile(
-            leading: const Icon(Icons.add_rounded,
-                color: Colors.white54, size: 20),
-            title: const Text('Create New Book',
-                style: TextStyle(fontSize: 14)),
-            trailing:
-                const Icon(Icons.chevron_right, color: Colors.white38),
+            leading: const Icon(
+              Icons.add_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Create New Book',
+              style: TextStyle(fontSize: 14),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _showCreateBookDialog(context),
           ),
           ListTile(
-            leading: const Icon(Icons.file_download_outlined,
-                color: Colors.white54, size: 20),
-            title: const Text('Import Book',
-                style: TextStyle(fontSize: 14)),
-            trailing:
-                const Icon(Icons.chevron_right, color: Colors.white38),
+            leading: const Icon(
+              Icons.file_download_outlined,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text('Import Book', style: TextStyle(fontSize: 14)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _importBook(context),
           ),
         ],
@@ -257,11 +273,15 @@ class _DatabaseSection extends StatelessWidget {
   void _showSwitchBookSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _BookListSheet(provider: provider),
+      builder: (_) => FractionallySizedBox(
+        heightFactor: .78,
+        child: _BookListSheet(provider: provider),
+      ),
     );
   }
 
@@ -277,8 +297,7 @@ class _DatabaseSection extends StatelessWidget {
           autofocus: true,
           style: const TextStyle(color: Colors.white),
           textCapitalization: TextCapitalization.words,
-          decoration:
-              const InputDecoration(hintText: 'Enter book name'),
+          decoration: const InputDecoration(hintText: 'Enter book name'),
         ),
         actions: [
           TextButton(
@@ -293,9 +312,7 @@ class _DatabaseSection extends StatelessWidget {
                 await provider.createNewBook(name);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text('Created and switched to "$name"')),
+                    SnackBar(content: Text('Created and switched to "$name"')),
                   );
                 }
               }
@@ -309,35 +326,31 @@ class _DatabaseSection extends StatelessWidget {
 
   Future<void> _importBook(BuildContext context) async {
     try {
-      final result =
-          await FilePicker.platform.pickFiles(type: FileType.any);
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
       if (result == null || result.files.single.path == null) return;
       final sourcePath = result.files.single.path!;
       if (!sourcePath.endsWith('.books.db')) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content:
-                    Text('Please select a valid .books.db file')),
+              content: Text('Please select a valid .books.db file'),
+            ),
           );
         }
         return;
       }
-      final bookName =
-          await DatabaseService.importBook(sourcePath);
+      final bookName = await DatabaseService.importBook(sourcePath);
       await provider.switchBook(bookName);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Imported and switched to "$bookName"')),
+          SnackBar(content: Text('Imported and switched to "$bookName"')),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
     }
   }
@@ -390,8 +403,7 @@ class _BookListSheetState extends State<_BookListSheet> {
           const SizedBox(height: 16),
           const Text(
             'Switch Book',
-            style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -402,8 +414,10 @@ class _BookListSheetState extends State<_BookListSheet> {
           else if (_books.isEmpty)
             const Padding(
               padding: EdgeInsets.all(32),
-              child: Text('No books found',
-                  style: TextStyle(color: Colors.white54)),
+              child: Text(
+                'No books found',
+                style: TextStyle(color: Colors.white54),
+              ),
             )
           else
             Expanded(
@@ -415,9 +429,7 @@ class _BookListSheetState extends State<_BookListSheet> {
                   return ListTile(
                     leading: Icon(
                       Icons.menu_book_rounded,
-                      color: isActive
-                          ? AppTheme.primaryColor
-                          : Colors.white38,
+                      color: isActive ? AppTheme.primaryColor : Colors.white38,
                     ),
                     title: Text(
                       book,
@@ -425,19 +437,22 @@ class _BookListSheetState extends State<_BookListSheet> {
                         fontWeight: isActive
                             ? FontWeight.w700
                             : FontWeight.w400,
-                        color: isActive
-                            ? AppTheme.primaryColor
-                            : Colors.white,
+                        color: isActive ? AppTheme.primaryColor : Colors.white,
                       ),
                     ),
                     trailing: isActive
-                        ? const Icon(Icons.check_circle,
-                            color: AppTheme.primaryColor, size: 20)
+                        ? const Icon(
+                            Icons.check_circle,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          )
                         : IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.white24, size: 20),
-                            onPressed: () =>
-                                _confirmDelete(context, book),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white24,
+                              size: 20,
+                            ),
+                            onPressed: () => _confirmDelete(context, book),
                           ),
                     onTap: isActive
                         ? null
@@ -461,7 +476,8 @@ class _BookListSheetState extends State<_BookListSheet> {
         backgroundColor: AppTheme.cardColor,
         title: const Text('Delete Book?'),
         content: Text(
-            'This will permanently delete "$bookName" and all its data.'),
+          'This will permanently delete "$bookName" and all its data.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -470,20 +486,17 @@ class _BookListSheetState extends State<_BookListSheet> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok =
-                  await widget.provider.deleteBook(bookName);
+              final ok = await widget.provider.deleteBook(bookName);
               if (ok) {
                 _loadBooks();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('"$bookName" deleted')),
+                    SnackBar(content: Text('"$bookName" deleted')),
                   );
                 }
               }
             },
-            style: TextButton.styleFrom(
-                foregroundColor: AppTheme.expenseColor),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.expenseColor),
             child: const Text('Delete'),
           ),
         ],
@@ -535,16 +548,20 @@ class _CurrencySelector extends StatelessWidget {
   void _showPicker(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _CurrencyPickerSheet(
-        current: current,
-        onSelect: (c) {
-          onChanged(c);
-          Navigator.pop(context);
-        },
+      builder: (_) => FractionallySizedBox(
+        heightFactor: .82,
+        child: _CurrencyPickerSheet(
+          current: current,
+          onSelect: (c) {
+            onChanged(c);
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
