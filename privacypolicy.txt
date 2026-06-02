@@ -1,0 +1,119 @@
+Privacy Policy
+
+Last Updated: June 2, 2026
+
+Introduction
+
+Finzo ("the App") is an offline personal finance manager developed by AHS Mobile Labs. This Privacy Policy explains how the App handles your information.
+
+By using Finzo, you agree to the practices described in this Privacy Policy.
+
+Information We Collect
+
+Finzo is designed with a privacy-first approach.
+
+The App does not collect, transmit, sell, rent, or share your personal information.
+
+All financial data entered into Finzo, including but not limited to:
+
+Transactions
+Accounts
+Budgets
+Loans
+Credit cards
+Investments
+Notes
+Financial reports
+
+is stored locally on your device.
+
+Data Storage
+
+Finzo stores data locally using a SQLite database.
+
+Your financial information remains on your device and is not transmitted to AHS Mobile Labs or any third party.
+
+You are solely responsible for managing, backing up, exporting, or deleting your data.
+
+Internet Access
+
+Finzo's core functionality does not require an internet connection.
+
+The App does not upload your financial information to any cloud service operated by AHS Mobile Labs.
+
+Analytics and Tracking
+
+Finzo does not use:
+
+Analytics services
+User tracking
+Advertising identifiers
+Behavioral profiling
+Data brokers
+
+No usage statistics or financial information are collected by AHS Mobile Labs through the App.
+
+Third-Party Services
+
+Finzo may provide optional links to external websites such as:
+
+GitHub
+YouTube
+Instagram
+X (Twitter)
+Email applications
+
+When you access third-party services, their respective privacy policies and terms apply. AHS Mobile Labs is not responsible for the privacy practices of third-party websites or services.
+
+Permissions
+
+Finzo may request limited device permissions when required for specific features, such as:
+
+File access for importing or exporting finance books
+Storage access for backups and database management
+
+These permissions are used solely to provide requested functionality and are not used to collect personal information.
+
+Data Security
+
+Your data is stored locally on your device. While Finzo takes reasonable measures to maintain data integrity, no method of electronic storage is completely secure.
+
+Users are encouraged to regularly back up their financial data.
+
+Children's Privacy
+
+Finzo is not directed toward children under the age of 13.
+
+The App does not knowingly collect personal information from children.
+
+Open Source
+
+Finzo is an open-source application. The source code is publicly available and can be reviewed by anyone.
+
+Changes to This Privacy Policy
+
+AHS Mobile Labs may update this Privacy Policy from time to time.
+
+Updated versions will be published with a revised "Last Updated" date.
+
+Contact
+
+If you have questions regarding this Privacy Policy, you may contact:
+
+AHS Mobile Labs
+
+Email: ahsmobilelabs@gmail.com
+
+GitHub: https://github.com/AHS-Mobile-Labs
+
+Summary
+No account required
+No cloud synchronization
+No analytics
+No advertising
+No tracking
+No data collection
+Data stored locally on your device
+You remain in control of your financial information
+
+AHS Mobile Labs
