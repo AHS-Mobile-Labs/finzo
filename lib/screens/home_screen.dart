@@ -300,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Finzo v1.0.0',
+                'Finzo v1.0.1',
                 style: TextStyle(color: Colors.white24, fontSize: 11),
               ),
             ),

@@ -184,7 +184,7 @@ class AboutScreen extends StatelessWidget {
                       const SizedBox(height: 28),
                       const Center(
                         child: Text(
-                          'Finzo v1.0.0  |  AHS Mobile Labs',
+                          'Finzo v1.0.1  |  AHS Mobile Labs',
                           style: TextStyle(color: Colors.white38, fontSize: 12),
                         ),
                       ),
