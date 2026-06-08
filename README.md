@@ -14,7 +14,7 @@
 
 Finzo is a private, offline-first money manager for people who want to track accounts, spending, budgets, cashflow, loans, credit cards, and investments without depending on a cloud account.
 
-[Features](#features) | [Screenshots](#screenshots) | [Install](#install) | [Tech Stack](#tech-stack) | [Contributing](#contributing)
+[Features](#features) | [Screenshots](#screenshots) | [Available](#available) | [Install](#install) | [Tech Stack](#tech-stack) | [Contributing](#contributing)
 
 </div>
 
@@ -59,6 +59,16 @@ Use Finzo as an offline expense tracker, income tracker, account balance manager
 | <img src="assets/github-img/%231/Screenshot_20260602_081119.jpg" alt="Finzo credit card tracker screen for adding credit card name and limit" width="230" /> | <img src="assets/github-img/%231/Screenshot_20260602_081128.jpg" alt="Finzo loan tracker form with principal amount interest tenure EMI auto EMI and account selection" width="230" /> | <img src="assets/github-img/%231/Screenshot_20260602_081136.jpg" alt="Finzo add investment form for mutual funds stocks gold invested amount current value units prices and notes" width="230" /> |
 
 </div>
+
+## Available
+
+Download the latest release or get it from a supported store:
+
+| Platform | Link | Region |
+| --- | --- | --- |
+| **GitHub Releases** | [Download APK](https://github.com/AHS-Mobile-Labs/finzo/releases/latest) | Worldwide |
+| **Google Play** | Coming soon | Worldwide |
+| **IndusAppStore** | [Get on IndusAppStore](https://www.indusappstore.com/apps/finance/finzo/com.ahsmobilelabs.finzo?page=details&id=com.ahsmobilelabs.finzo) | 🇮🇳 India only |
 
 ## Install
 
