@@ -64,11 +64,21 @@ Use Finzo as an offline expense tracker, income tracker, account balance manager
 
 Download the latest release or get it from a supported store:
 
-| Platform | Link | Region |
-| --- | --- | --- |
-| **GitHub Releases** | [Download APK](https://github.com/AHS-Mobile-Labs/finzo/releases/latest) | Worldwide |
-| **Google Play** | Coming soon | Worldwide |
-| **IndusAppStore** | [Get on IndusAppStore](https://www.indusappstore.com/apps/finance/finzo/com.ahsmobilelabs.finzo?page=details&id=com.ahsmobilelabs.finzo) | 🇮🇳 India only |
+<div align="center">
+
+[![Download](https://img.shields.io/badge/Download-Latest_Release-black?logo=github)](https://github.com/AHS-Mobile-Labs/finzo/releases/latest)
+&nbsp;
+<a href="#">
+  <img alt="Get it on Google Play" src="assets/other/readme%20asset/GetItOnGooglePlay_Badge_Web_color_English.svg" height="40" />
+</a>
+&nbsp;
+<a href="https://indusapp.store/4i6tw1m6">
+  <img alt="Get it on Indus Appstore" src="https://docstore.indusappstore.com/public/external/developerdashboard-static/badge-black-background-english.png" height="40" />
+</a>
+
+<sub>Google Play coming soon &nbsp;·&nbsp; 🇮🇳 IndusAppStore is available for Indian users only</sub>
+
+</div>
 
 ## Install
 
