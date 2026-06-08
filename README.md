@@ -14,7 +14,7 @@
 
 Finzo is a private, offline-first money manager for people who want to track accounts, spending, budgets, cashflow, loans, credit cards, and investments without depending on a cloud account.
 
-[Features](#features) | [Screenshots](#screenshots) | [Available](#available) | [Install](#install) | [Tech Stack](#tech-stack) | [Contributing](#contributing)
+[Features](#features) | [Screenshots](#screenshots) | [Download](#download) | [Install](#install) | [Tech Stack](#tech-stack) | [Contributing](#contributing)
 
 </div>
 
@@ -60,7 +60,7 @@ Use Finzo as an offline expense tracker, income tracker, account balance manager
 
 </div>
 
-## Available
+## Download
 
 Download the latest release or get it from a supported store:
 
