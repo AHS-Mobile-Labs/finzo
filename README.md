@@ -66,7 +66,9 @@ Download the latest release or get it from a supported store:
 
 <div align="center">
 
-[![Download](https://img.shields.io/badge/Download-Latest_Release-black?logo=github)](https://github.com/AHS-Mobile-Labs/finzo/releases/latest)
+<a href="https://github.com/AHS-Mobile-Labs/finzo/releases/latest">
+  <img alt="Download from GitHub" src="assets/other/readme asset/badge_github.png" height="40" />
+</a>
 &nbsp;
 <a href="#">
   <img alt="Get it on Google Play" src="assets/other/readme%20asset/GetItOnGooglePlay_Badge_Web_color_English.svg" height="40" />
