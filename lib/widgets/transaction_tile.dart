@@ -35,6 +35,15 @@ class TransactionTile extends StatelessWidget {
         ? AppTheme.incomeColor
         : AppTheme.expenseColor;
     final amountPrefix = isTransfer ? '' : (isIncome ? '+' : '-');
+    final categoryLabel = transaction.hasSplits
+        ? 'Split ${transaction.splits.length}'
+        : category?.name ?? 'Unknown';
+    final hasExtras =
+        !isTransfer &&
+        (transaction.paymentMethod != null ||
+            transaction.tags.isNotEmpty ||
+            transaction.receiptPath != null ||
+            transaction.trackingStatus != TransactionTrackingStatus.normal);
 
     return Dismissible(
       key: Key(transaction.id),
@@ -133,6 +142,20 @@ class TransactionTile extends StatelessWidget {
                             fontSize: 11,
                           ),
                         ),
+                        const Text(
+                          ' · ',
+                          style: TextStyle(color: Colors.white38, fontSize: 11),
+                        ),
+                        Flexible(
+                          child: Text(
+                            categoryLabel,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         if (account != null) ...[
                           const Text(
                             ' · ',
@@ -162,6 +185,47 @@ class TransactionTile extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (hasExtras) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (transaction.paymentMethod != null)
+                            _MetaChip(
+                              icon: Icons.account_balance_wallet_rounded,
+                              label: TransactionPaymentMethod.label(
+                                transaction.paymentMethod,
+                              ),
+                            ),
+                          if (transaction.trackingStatus !=
+                              TransactionTrackingStatus.normal)
+                            _MetaChip(
+                              icon:
+                                  transaction.trackingStatus ==
+                                      TransactionTrackingStatus.refund
+                                  ? Icons.replay_rounded
+                                  : Icons.assignment_return_rounded,
+                              label: TransactionTrackingStatus.label(
+                                transaction.trackingStatus,
+                              ),
+                            ),
+                          if (transaction.receiptPath != null)
+                            const _MetaChip(
+                              icon: Icons.receipt_long_rounded,
+                              label: 'Receipt',
+                            ),
+                          ...transaction.tags
+                              .take(2)
+                              .map(
+                                (tag) => _MetaChip(
+                                  icon: Icons.sell_rounded,
+                                  label: tag,
+                                ),
+                              ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -177,6 +241,35 @@ class TransactionTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: Colors.white38),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+        ],
       ),
     );
   }

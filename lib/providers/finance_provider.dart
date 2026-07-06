@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
+import '../models/transaction_split_model.dart';
 import '../models/account_model.dart';
 import '../models/category_model.dart';
 import '../models/budget_model.dart';
@@ -173,6 +178,13 @@ class FinanceProvider extends ChangeNotifier {
     }
   }
 
+  String categoryDisplayName(CategoryModel? category) {
+    if (category == null) return 'Unknown';
+    if (category.parentCategoryId == null) return category.name;
+    final parent = getCategoryById(category.parentCategoryId!);
+    return parent == null ? category.name : '${parent.name} / ${category.name}';
+  }
+
   AccountModel? getAccountById(String id) {
     try {
       return _accounts.firstWhere((a) => a.id == id);
@@ -320,7 +332,12 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> addTransaction(TransactionModel tx) async {
     await _db.insertTransaction(tx);
     if (tx.type != 'transfer') {
-      await _trackCategoryUsage(tx.categoryId, tx.type);
+      final categoryIds = tx.splits.isEmpty
+          ? <String>[tx.categoryId]
+          : tx.splits.map((split) => split.categoryId).toSet().toList();
+      for (final categoryId in categoryIds) {
+        await _trackCategoryUsage(categoryId, tx.type);
+      }
     }
     await _loadAll();
     notifyListeners();
@@ -572,6 +589,333 @@ class FinanceProvider extends ChangeNotifier {
     if (bookName == currentBookName) return false;
     await _db.deleteBook(bookName);
     return true;
+  }
+
+  Future<String> backupCurrentBook() => _db.backupCurrentBook();
+
+  Future<String> exportTransactionsCsv() async {
+    final exportsDir = Directory(
+      p.join(await DatabaseService.finzoDir, 'exports'),
+    );
+    if (!await exportsDir.exists()) {
+      await exportsDir.create(recursive: true);
+    }
+
+    final stamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .replaceAll('.', '');
+    final file = File(
+      p.join(exportsDir.path, '${currentBookName}_transactions_$stamp.csv'),
+    );
+
+    const headers = [
+      'title',
+      'amount',
+      'type',
+      'category',
+      'account',
+      'related_account',
+      'date',
+      'note',
+      'payment_method',
+      'tags',
+      'tracking_status',
+      'receipt_path',
+      'splits',
+    ];
+
+    final rows = <List<String>>[headers];
+    for (final tx in _transactions) {
+      final category = getCategoryById(tx.categoryId);
+      final account = getAccountById(tx.accountId);
+      final related = tx.relatedAccountId == null
+          ? null
+          : getAccountById(tx.relatedAccountId!);
+      rows.add([
+        tx.title,
+        tx.amount.toStringAsFixed(2),
+        tx.type,
+        categoryDisplayName(category),
+        account?.name ?? '',
+        related?.name ?? '',
+        tx.date.toIso8601String(),
+        tx.note ?? '',
+        tx.paymentMethod ?? '',
+        tx.tags.join(';'),
+        tx.trackingStatus,
+        tx.receiptPath ?? '',
+        jsonEncode(
+          tx.splits.map((split) {
+            final splitCategory = getCategoryById(split.categoryId);
+            return {
+              'category': categoryDisplayName(splitCategory),
+              'amount': split.amount,
+            };
+          }).toList(),
+        ),
+      ]);
+    }
+
+    await file.writeAsString(
+      rows.map((row) => row.map(_csvEscape).join(',')).join('\n'),
+      flush: true,
+    );
+    return file.path;
+  }
+
+  Future<int> importTransactionsCsv(String sourcePath) async {
+    final file = File(sourcePath);
+    if (!await file.exists()) throw Exception('CSV file not found');
+
+    final rows = _parseCsv(await file.readAsString());
+    if (rows.isEmpty) return 0;
+
+    final headers = rows.first.map((header) => header.trim()).toList();
+    final indexes = <String, int>{};
+    for (var i = 0; i < headers.length; i++) {
+      indexes[headers[i].toLowerCase()] = i;
+    }
+
+    String value(List<String> row, String key) {
+      final index = indexes[key];
+      if (index == null || index >= row.length) return '';
+      return row[index].trim();
+    }
+
+    var imported = 0;
+    const uuid = Uuid();
+
+    for (final row in rows.skip(1)) {
+      if (row.every((cell) => cell.trim().isEmpty)) continue;
+
+      final amount = double.tryParse(value(row, 'amount'));
+      if (amount == null || amount <= 0) continue;
+
+      final type = _normaliseTransactionType(value(row, 'type'));
+      final account = await _accountForImport(value(row, 'account'), uuid);
+      AccountModel? related;
+      if (type == 'transfer') {
+        related = await _accountForImport(value(row, 'related_account'), uuid);
+        if (related.id == account.id) continue;
+      }
+
+      final category = type == 'transfer'
+          ? getCategoryById('cat_transfer')
+          : await _categoryForImport(value(row, 'category'), type, uuid);
+      if (category == null) continue;
+
+      final date = DateTime.tryParse(value(row, 'date')) ?? DateTime.now();
+      final splits = type == 'transfer'
+          ? <TransactionSplitModel>[]
+          : await _splitsForImport(value(row, 'splits'), type, uuid);
+
+      final tx = TransactionModel(
+        id: uuid.v4(),
+        title: value(row, 'title').isEmpty
+            ? 'Imported transaction'
+            : value(row, 'title'),
+        amount: amount,
+        type: type,
+        categoryId: splits.isNotEmpty ? splits.first.categoryId : category.id,
+        accountId: account.id,
+        relatedAccountId: related?.id,
+        date: date,
+        note: value(row, 'note').isEmpty ? null : value(row, 'note'),
+        paymentMethod: _normalisePaymentMethod(value(row, 'payment_method')),
+        tags: value(row, 'tags')
+            .split(';')
+            .map((tag) => tag.trim())
+            .where((tag) => tag.isNotEmpty)
+            .toList(),
+        receiptPath: value(row, 'receipt_path').isEmpty
+            ? null
+            : value(row, 'receipt_path'),
+        trackingStatus: _normaliseTrackingStatus(value(row, 'tracking_status')),
+        splits: splits,
+        createdAt: DateTime.now(),
+      );
+
+      await _db.insertTransaction(tx);
+      imported++;
+    }
+
+    await _loadAll();
+    notifyListeners();
+    return imported;
+  }
+
+  String _csvEscape(String value) {
+    final needsQuotes =
+        value.contains(',') || value.contains('"') || value.contains('\n');
+    final escaped = value.replaceAll('"', '""');
+    return needsQuotes ? '"$escaped"' : escaped;
+  }
+
+  List<List<String>> _parseCsv(String input) {
+    final rows = <List<String>>[];
+    var row = <String>[];
+    final cell = StringBuffer();
+    var inQuotes = false;
+
+    for (var i = 0; i < input.length; i++) {
+      final char = input[i];
+      if (inQuotes) {
+        if (char == '"') {
+          final nextIsQuote = i + 1 < input.length && input[i + 1] == '"';
+          if (nextIsQuote) {
+            cell.write('"');
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          cell.write(char);
+        }
+      } else if (char == '"') {
+        inQuotes = true;
+      } else if (char == ',') {
+        row.add(cell.toString());
+        cell.clear();
+      } else if (char == '\n') {
+        row.add(cell.toString());
+        rows.add(row);
+        row = <String>[];
+        cell.clear();
+      } else if (char != '\r') {
+        cell.write(char);
+      }
+    }
+
+    row.add(cell.toString());
+    if (row.any((cell) => cell.isNotEmpty)) {
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  String _normaliseTransactionType(String value) {
+    final lower = value.toLowerCase();
+    if (lower == 'income' || lower == 'transfer') return lower;
+    return 'expense';
+  }
+
+  String? _normalisePaymentMethod(String value) {
+    final lower = value.toLowerCase();
+    if (TransactionPaymentMethod.values.contains(lower)) return lower;
+    if (lower == 'upi') return TransactionPaymentMethod.upi;
+    if (lower.isEmpty) return null;
+    return TransactionPaymentMethod.cash;
+  }
+
+  String _normaliseTrackingStatus(String value) {
+    final lower = value.toLowerCase();
+    if (TransactionTrackingStatus.values.contains(lower)) return lower;
+    return TransactionTrackingStatus.normal;
+  }
+
+  Future<AccountModel> _accountForImport(String name, Uuid uuid) async {
+    final target = name.trim();
+    if (target.isNotEmpty) {
+      for (final account in _accounts) {
+        if (account.name.toLowerCase() == target.toLowerCase()) {
+          return account;
+        }
+      }
+    }
+
+    if (_accounts.isNotEmpty && target.isEmpty) {
+      return _accounts.first;
+    }
+
+    final account = AccountModel(
+      id: uuid.v4(),
+      name: target.isEmpty ? 'Imported Account' : target,
+      balance: 0,
+      color: 0xFF6AA5FF,
+      icon: 'bank',
+      createdAt: DateTime.now(),
+    );
+    await _db.insertAccount(account);
+    _accounts.add(account);
+    return account;
+  }
+
+  Future<CategoryModel?> _categoryForImport(
+    String name,
+    String type,
+    Uuid uuid,
+  ) async {
+    final target = name.trim();
+    for (final category in _categories) {
+      final display = categoryDisplayName(category);
+      if ((category.name.toLowerCase() == target.toLowerCase() ||
+              display.toLowerCase() == target.toLowerCase()) &&
+          (category.type == type || category.type == 'both')) {
+        return category;
+      }
+    }
+
+    final fallbackName = target.isEmpty
+        ? (type == 'income' ? 'Imported Income' : 'Imported Expense')
+        : target.split('/').last.trim();
+    CategoryModel? parent;
+    if (target.contains('/')) {
+      final parentName = target.split('/').first.trim();
+      try {
+        parent = _categories.firstWhere(
+          (category) => category.name.toLowerCase() == parentName.toLowerCase(),
+        );
+      } catch (_) {
+        parent = null;
+      }
+    }
+
+    final category = CategoryModel(
+      id: uuid.v4(),
+      name: fallbackName,
+      icon: type == 'income' ? 'cash' : 'box',
+      color: type == 'income' ? 0xFF3EE184 : 0xFFFFD95A,
+      type: type,
+      parentCategoryId: parent?.id,
+    );
+    await _db.insertCategory(category);
+    _categories.add(category);
+    return category;
+  }
+
+  Future<List<TransactionSplitModel>> _splitsForImport(
+    String raw,
+    String type,
+    Uuid uuid,
+  ) async {
+    if (raw.trim().isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      final splits = <TransactionSplitModel>[];
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final categoryName = item['category']?.toString() ?? '';
+        final amount = item['amount'] is num
+            ? (item['amount'] as num).toDouble()
+            : double.tryParse(item['amount']?.toString() ?? '');
+        if (amount == null || amount <= 0) continue;
+        final category = await _categoryForImport(categoryName, type, uuid);
+        if (category == null) continue;
+        splits.add(
+          TransactionSplitModel(
+            id: uuid.v4(),
+            transactionId: '',
+            categoryId: category.id,
+            amount: amount,
+          ),
+        );
+      }
+      return splits;
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Get current database file path

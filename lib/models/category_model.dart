@@ -5,6 +5,7 @@ class CategoryModel {
   final int color;
   final String type; // 'income', 'expense', 'both'
   final bool isDefault;
+  final String? parentCategoryId;
 
   const CategoryModel({
     required this.id,
@@ -13,6 +14,7 @@ class CategoryModel {
     required this.color,
     required this.type,
     this.isDefault = false,
+    this.parentCategoryId,
   });
 
   factory CategoryModel.fromMap(Map<String, dynamic> map) {
@@ -23,6 +25,7 @@ class CategoryModel {
       color: map['color'] as int,
       type: map['type'] as String,
       isDefault: (map['is_default'] as int) == 1,
+      parentCategoryId: map['parent_id'] as String?,
     );
   }
 
@@ -34,6 +37,26 @@ class CategoryModel {
       'color': color,
       'type': type,
       'is_default': isDefault ? 1 : 0,
+      'parent_id': parentCategoryId,
     };
+  }
+
+  CategoryModel copyWith({
+    String? name,
+    String? icon,
+    int? color,
+    String? type,
+    bool? isDefault,
+    String? parentCategoryId,
+  }) {
+    return CategoryModel(
+      id: id,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      type: type ?? this.type,
+      isDefault: isDefault ?? this.isDefault,
+      parentCategoryId: parentCategoryId ?? this.parentCategoryId,
+    );
   }
 }

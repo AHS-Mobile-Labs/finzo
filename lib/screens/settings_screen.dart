@@ -261,9 +261,51 @@ class _DatabaseSection extends StatelessWidget {
               color: Colors.white54,
               size: 20,
             ),
-            title: const Text('Import Book', style: TextStyle(fontSize: 14)),
+            title: const Text(
+              'Restore or Import Book',
+              style: TextStyle(fontSize: 14),
+            ),
             trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _importBook(context),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.backup_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Backup Current Book',
+              style: TextStyle(fontSize: 14),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () => _backupBook(context),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.upload_file_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Export Transactions CSV',
+              style: TextStyle(fontSize: 14),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () => _exportTransactionsCsv(context),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.download_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Import Transactions CSV',
+              style: TextStyle(fontSize: 14),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () => _importTransactionsCsv(context),
           ),
         ],
       ),
@@ -351,6 +393,68 @@ class _DatabaseSection extends StatelessWidget {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _backupBook(BuildContext context) async {
+    try {
+      final path = await provider.backupCurrentBook();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Backup saved: $path')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _exportTransactionsCsv(BuildContext context) async {
+    try {
+      final path = await provider.exportTransactionsCsv();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('CSV exported: $path')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('CSV export failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _importTransactionsCsv(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
+      if (result == null || result.files.single.path == null) return;
+      final sourcePath = result.files.single.path!;
+      if (!sourcePath.toLowerCase().endsWith('.csv')) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a .csv file')),
+          );
+        }
+        return;
+      }
+      final count = await provider.importTransactionsCsv(sourcePath);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Imported $count transactions')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('CSV import failed: $e')));
       }
     }
   }

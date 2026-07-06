@@ -18,6 +18,12 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   String _filter = 'all';
   String _search = '';
+  String _period = 'all';
+  DateTime _periodAnchor = DateTime.now();
+  String? _accountFilter;
+  String? _categoryFilter;
+  String? _paymentFilter;
+  String? _trackingFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -31,16 +37,43 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       final related = tx.relatedAccountId == null
           ? null
           : provider.getAccountById(tx.relatedAccountId!);
+      final splitCategories = tx.splits
+          .map((split) => provider.getCategoryById(split.categoryId))
+          .where((category) => category != null)
+          .toList();
       final matchType = _filter == 'all' || tx.type == _filter;
       final searchable = [
         tx.title,
         tx.note ?? '',
-        category?.name ?? '',
+        provider.categoryDisplayName(category),
+        ...splitCategories.map((cat) => provider.categoryDisplayName(cat)),
         account?.name ?? '',
         related?.name ?? '',
+        TransactionPaymentMethod.label(tx.paymentMethod),
+        TransactionTrackingStatus.label(tx.trackingStatus),
+        ...tx.tags,
       ].join(' ').toLowerCase();
       final matchSearch = _search.isEmpty || searchable.contains(searchLower);
-      return matchType && matchSearch;
+      final matchPeriod = _matchesPeriod(tx.date);
+      final matchAccount =
+          _accountFilter == null ||
+          tx.accountId == _accountFilter ||
+          tx.relatedAccountId == _accountFilter;
+      final matchCategory =
+          _categoryFilter == null ||
+          tx.categoryId == _categoryFilter ||
+          tx.splits.any((split) => split.categoryId == _categoryFilter);
+      final matchPayment =
+          _paymentFilter == null || tx.paymentMethod == _paymentFilter;
+      final matchTracking =
+          _trackingFilter == null || tx.trackingStatus == _trackingFilter;
+      return matchType &&
+          matchSearch &&
+          matchPeriod &&
+          matchAccount &&
+          matchCategory &&
+          matchPayment &&
+          matchTracking;
     }).toList();
 
     // Group by date
@@ -54,6 +87,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       appBar: AppBar(
         title: const Text('Transactions'),
         actions: [
+          IconButton(
+            icon: Icon(
+              _hasAdvancedFilters
+                  ? Icons.filter_alt_rounded
+                  : Icons.filter_alt_outlined,
+            ),
+            onPressed: () => _showFilters(context),
+          ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showAdd(context),
@@ -78,36 +119,100 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _FilterChip(
-                      label: 'All',
-                      selected: _filter == 'all',
-                      onTap: () => setState(() => _filter = 'all'),
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterChip(
-                      label: 'Expense',
-                      selected: _filter == 'expense',
-                      onTap: () => setState(() => _filter = 'expense'),
-                      activeColor: AppTheme.expenseColor,
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterChip(
-                      label: 'Income',
-                      selected: _filter == 'income',
-                      onTap: () => setState(() => _filter = 'income'),
-                      activeColor: AppTheme.incomeColor,
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterChip(
-                      label: 'Transfer',
-                      selected: _filter == 'transfer',
-                      onTap: () => setState(() => _filter = 'transfer'),
-                      activeColor: AppTheme.primaryColor,
-                    ),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        selected: _filter == 'all',
+                        onTap: () => setState(() => _filter = 'all'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Expense',
+                        selected: _filter == 'expense',
+                        onTap: () => setState(() => _filter = 'expense'),
+                        activeColor: AppTheme.expenseColor,
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Income',
+                        selected: _filter == 'income',
+                        onTap: () => setState(() => _filter = 'income'),
+                        activeColor: AppTheme.incomeColor,
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Transfer',
+                        selected: _filter == 'transfer',
+                        onTap: () => setState(() => _filter = 'transfer'),
+                        activeColor: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final period in [
+                        'all',
+                        'day',
+                        'week',
+                        'month',
+                        'year',
+                      ]) ...[
+                        _FilterChip(
+                          label: _periodLabelShort(period),
+                          selected: _period == period,
+                          onTap: () => setState(() => _period = period),
+                          activeColor: AppTheme.infoColor,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                if (_period != 'all') ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Previous period',
+                        onPressed: () => setState(() {
+                          _periodAnchor = _movePeriod(_periodAnchor, -1);
+                        }),
+                        icon: const Icon(
+                          Icons.chevron_left_rounded,
+                          color: Colors.white54,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          _periodLabel,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Next period',
+                        onPressed: () => setState(() {
+                          _periodAnchor = _movePeriod(_periodAnchor, 1);
+                        }),
+                        icon: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -229,6 +334,239 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       requestFocus: true,
       backgroundColor: Colors.transparent,
       builder: (_) => AddTransactionSheet(existing: tx),
+    );
+  }
+
+  bool get _hasAdvancedFilters =>
+      _accountFilter != null ||
+      _categoryFilter != null ||
+      _paymentFilter != null ||
+      _trackingFilter != null;
+
+  String _periodLabelShort(String period) {
+    return switch (period) {
+      'day' => 'Day',
+      'week' => 'Week',
+      'month' => 'Month',
+      'year' => 'Year',
+      _ => 'All time',
+    };
+  }
+
+  bool _matchesPeriod(DateTime date) {
+    if (_period == 'all') return true;
+    final start = _periodStart(_periodAnchor);
+    final end = _movePeriod(start, 1);
+    return !date.isBefore(start) && date.isBefore(end);
+  }
+
+  DateTime _periodStart(DateTime date) {
+    return switch (_period) {
+      'day' => DateTime(date.year, date.month, date.day),
+      'week' => DateTime(
+        date.year,
+        date.month,
+        date.day - (date.weekday - DateTime.monday),
+      ),
+      'month' => DateTime(date.year, date.month),
+      'year' => DateTime(date.year),
+      _ => DateTime(1970),
+    };
+  }
+
+  DateTime _movePeriod(DateTime date, int delta) {
+    return switch (_period) {
+      'day' => date.add(Duration(days: delta)),
+      'week' => date.add(Duration(days: 7 * delta)),
+      'month' => DateTime(date.year, date.month + delta, 1),
+      'year' => DateTime(date.year + delta, 1, 1),
+      _ => date,
+    };
+  }
+
+  String get _periodLabel {
+    final start = _periodStart(_periodAnchor);
+    return switch (_period) {
+      'day' => Formatters.dateFull(start),
+      'week' =>
+        '${Formatters.dateShort(start)} - ${Formatters.dateShort(start.add(const Duration(days: 6)))}',
+      'month' => Formatters.monthYear(start),
+      'year' => start.year.toString(),
+      _ => 'All time',
+    };
+  }
+
+  void _showFilters(BuildContext context) {
+    final provider = context.read<FinanceProvider>();
+    var accountId = _accountFilter;
+    var categoryId = _categoryFilter;
+    var paymentMethod = _paymentFilter;
+    var trackingStatus = _trackingFilter;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Filters',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String?>(
+                  initialValue: accountId,
+                  dropdownColor: AppTheme.cardColor,
+                  decoration: const InputDecoration(labelText: 'Account'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All accounts'),
+                    ),
+                    ...provider.accounts.map(
+                      (account) => DropdownMenuItem<String?>(
+                        value: account.id,
+                        child: Text(account.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setSheetState(() => accountId = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: categoryId,
+                  dropdownColor: AppTheme.cardColor,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All categories'),
+                    ),
+                    ...provider.categories.map(
+                      (category) => DropdownMenuItem<String?>(
+                        value: category.id,
+                        child: Text(provider.categoryDisplayName(category)),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setSheetState(() => categoryId = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: paymentMethod,
+                  dropdownColor: AppTheme.cardColor,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment method',
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All methods'),
+                    ),
+                    ...TransactionPaymentMethod.values.map(
+                      (method) => DropdownMenuItem<String?>(
+                        value: method,
+                        child: Text(TransactionPaymentMethod.label(method)),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setSheetState(() => paymentMethod = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: trackingStatus,
+                  dropdownColor: AppTheme.cardColor,
+                  decoration: const InputDecoration(labelText: 'Tracking'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All statuses'),
+                    ),
+                    ...TransactionTrackingStatus.values.map(
+                      (status) => DropdownMenuItem<String?>(
+                        value: status,
+                        child: Text(TransactionTrackingStatus.label(status)),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setSheetState(() => trackingStatus = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setSheetState(() {
+                            accountId = null;
+                            categoryId = null;
+                            paymentMethod = null;
+                            trackingStatus = null;
+                          });
+                        },
+                        child: const Text('Clear'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _accountFilter = accountId;
+                            _categoryFilter = categoryId;
+                            _paymentFilter = paymentMethod;
+                            _trackingFilter = trackingStatus;
+                          });
+                          Navigator.pop(sheetContext);
+                        },
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
