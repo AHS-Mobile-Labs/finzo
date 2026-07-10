@@ -108,15 +108,11 @@ class _NetWorthHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2541B2), Color(0xFF08A88A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF08A88A).withAlpha(50),
+            color: AppTheme.primaryColor.withAlpha(50),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),

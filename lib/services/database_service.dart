@@ -85,11 +85,12 @@ class DatabaseService {
     }
   }
 
-  /// Returns Finzo's database directory.
+  /// Returns Finzo's app-owned database directory.
   ///
-  /// Android first tries the shared device Documents folder so the database is
-  /// outside Android/data. iOS uses the app Documents folder, which is exposed
-  /// in Files through Info.plist.
+  /// SQLite databases must live in storage the app can open directly. Public
+  /// Android folders such as /storage/emulated/0/Documents are handled only as
+  /// migration/import sources because scoped storage can reject direct SQLite
+  /// access there.
   static Future<String> get finzoDir async {
     final preferredDir = await _preferredDocumentsDirectory();
     if (preferredDir != null && await _ensureWritable(preferredDir)) {
@@ -110,28 +111,6 @@ class DatabaseService {
   }
 
   static Future<Directory?> _preferredDocumentsDirectory() async {
-    if (Platform.isAndroid) {
-      try {
-        final root = await _storageChannel.invokeMethod<String>(
-          'getDocumentsDirectory',
-        );
-        if (root != null && root.trim().isNotEmpty) {
-          return Directory(p.join(root, 'Finzo'));
-        }
-      } on MissingPluginException catch (e) {
-        _log('[DB] Android documents channel missing: $e');
-      } on PlatformException catch (e) {
-        _log('[DB] Android documents directory unavailable: ${e.message}');
-      } catch (e) {
-        _log('[DB] Error resolving Android documents directory: $e');
-      }
-    }
-
-    if (Platform.isIOS) {
-      final docs = await getApplicationDocumentsDirectory();
-      return Directory(p.join(docs.path, 'Finzo'));
-    }
-
     try {
       final docs = await getApplicationDocumentsDirectory();
       return Directory(p.join(docs.path, 'Finzo'));
@@ -142,8 +121,29 @@ class DatabaseService {
   }
 
   static Future<Directory> _fallbackDocumentsDirectory() async {
-    final docs = await getApplicationDocumentsDirectory();
-    return Directory(p.join(docs.path, 'Finzo'));
+    final dbRoot = await getDatabasesPath();
+    return Directory(p.join(dbRoot, 'Finzo'));
+  }
+
+  static Future<Directory?> _androidPublicDocumentsDirectory() async {
+    if (!Platform.isAndroid) return null;
+
+    try {
+      final root = await _storageChannel.invokeMethod<String>(
+        'getDocumentsDirectory',
+      );
+      if (root != null && root.trim().isNotEmpty) {
+        return Directory(p.join(root, 'Finzo'));
+      }
+    } on MissingPluginException catch (e) {
+      _log('[DB] Android documents channel missing: $e');
+    } on PlatformException catch (e) {
+      _log('[DB] Android public documents unavailable: ${e.message}');
+    } catch (e) {
+      _log('[DB] Error resolving Android public documents directory: $e');
+    }
+
+    return null;
   }
 
   static Future<bool> _ensureWritable(Directory dir) async {
@@ -181,6 +181,12 @@ class DatabaseService {
     }
 
     if (Platform.isAndroid) {
+      final publicDocs = await _androidPublicDocumentsDirectory();
+      if (publicDocs != null) {
+        sources.add(Directory(p.join(p.dirname(publicDocs.path), 'finzo')));
+        sources.add(publicDocs);
+      }
+
       try {
         final cache = await getApplicationCacheDirectory();
         sources.add(Directory(p.join(cache.parent.path, 'files', 'finzo')));
@@ -205,20 +211,24 @@ class DatabaseService {
     final seen = <String>{targetPath};
 
     for (final sourceDir in sources) {
-      final sourcePath = p.normalize(sourceDir.path);
-      if (!seen.add(sourcePath)) continue;
-      if (!await sourceDir.exists()) continue;
+      try {
+        final sourcePath = p.normalize(sourceDir.path);
+        if (!seen.add(sourcePath)) continue;
+        if (!await sourceDir.exists()) continue;
 
-      await for (final entity in sourceDir.list()) {
-        if (entity is File) {
-          final name = p.basename(entity.path);
-          if (!name.endsWith('.books.db') && name != '.onboarded') continue;
+        await for (final entity in sourceDir.list()) {
+          if (entity is File) {
+            final name = p.basename(entity.path);
+            if (!name.endsWith('.books.db') && name != '.onboarded') continue;
 
-          final dest = File(p.join(targetDir.path, name));
-          if (!await dest.exists()) {
-            await entity.copy(dest.path);
+            final dest = File(p.join(targetDir.path, name));
+            if (!await dest.exists()) {
+              await entity.copy(dest.path);
+            }
           }
         }
+      } catch (e) {
+        _log('[DB] Could not migrate from ${sourceDir.path}: $e');
       }
     }
   }
@@ -298,6 +308,7 @@ class DatabaseService {
         .basenameWithoutExtension(sourcePath)
         .replaceAll('.books', '');
     final destPath = await pathForBook(name);
+    if (p.normalize(sourcePath) == p.normalize(destPath)) return name;
     await file.copy(destPath);
     return name;
   }
@@ -873,7 +884,7 @@ class DatabaseService {
         'id': 'acc_cash',
         'name': 'Cash',
         'balance': 0.0,
-        'color': 0xFF6C63FF,
+        'color': 0xFF654CFF,
         'icon': 'cash',
         'created_at': now,
       });
@@ -902,7 +913,7 @@ class DatabaseService {
       'id': 'cat_transfer',
       'name': 'Transfer',
       'icon': 'transfer',
-      'color': 0xFF6C63FF,
+      'color': 0xFF654CFF,
       'type': 'both',
       'is_default': 1,
     };

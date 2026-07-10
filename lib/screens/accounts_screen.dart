@@ -32,11 +32,7 @@ class AccountsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppTheme.cardColor,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white10),
             ),
@@ -267,7 +263,7 @@ class _AccountSheetState extends State<_AccountSheet> {
   final _nameCtrl = TextEditingController();
   final _balanceCtrl = TextEditingController();
   String _selectedIcon = 'cash';
-  int _selectedColor = 0xFF6C63FF;
+  int _selectedColor = 0xFF654CFF;
 
   bool get _isEditing => widget.existing != null;
 

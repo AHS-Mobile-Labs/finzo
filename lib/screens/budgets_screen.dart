@@ -127,13 +127,7 @@ class _OverviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isOver
-              ? [AppTheme.expenseColor.withAlpha(204), const Color(0xFF8B0000)]
-              : [const Color(0xFF6C63FF), const Color(0xFF5A52D5)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: isOver ? AppTheme.expenseColor : AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -242,7 +236,7 @@ class _BudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(category?.color ?? 0xFF6C63FF);
+    final color = Color(category?.color ?? 0xFF654CFF);
     final isOver = budget.isOverBudget;
 
     return GestureDetector(

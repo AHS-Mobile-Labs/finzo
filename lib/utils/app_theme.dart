@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const primaryColor = Color(0xFF7B6BFF);
-  static const incomeColor = Color(0xFF3EE184);
+  static const primaryColor = Color(0xFF654CFF);
+  static const incomeColor = Color(0xFF4DDB6A);
   static const expenseColor = Color(0xFFFF7070);
-  static const warningColor = Color(0xFFFFD95A);
-  static const infoColor = Color(0xFF6AA5FF);
+  static const warningColor = Color(0xFFFFD75A);
+  static const infoColor = Color(0xFF4DDB6A);
   static const surfaceColor = Color(0xFF161616);
   static const cardColor = Color(0xFF1E1E1E);
   static const elevatedSurfaceColor = Color(0xFF262626);
@@ -168,13 +168,13 @@ class AppConstants {
   ];
 
   static const List<int> colorOptions = [
-    0xFF7B6BFF,
-    0xFF3EE184,
-    0xFFFFD95A,
+    0xFF654CFF,
+    0xFF4DDB6A,
+    0xFFFFD75A,
     0xFFFF7070,
-    0xFF6AA5FF,
+    0xFF4DDB6A,
     0xFFB0B0B8,
-    0xFF5B47F2,
-    0xFF27C46B,
+    0xFF654CFF,
+    0xFF4DDB6A,
   ];
 }

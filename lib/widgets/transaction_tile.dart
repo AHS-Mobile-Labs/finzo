@@ -28,7 +28,7 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIncome = transaction.type == 'income';
     final isTransfer = transaction.type == 'transfer';
-    final color = Color(category?.color ?? 0xFF6C63FF);
+    final color = Color(category?.color ?? 0xFF654CFF);
     final amountColor = isTransfer
         ? AppTheme.primaryColor
         : isIncome

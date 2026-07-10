@@ -77,15 +77,11 @@ class _LoanSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE74C3C), Color(0xFFC0392B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.expenseColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE74C3C).withAlpha(80),
+            color: AppTheme.expenseColor.withAlpha(80),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),

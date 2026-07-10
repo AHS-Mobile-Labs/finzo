@@ -1042,7 +1042,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     final provider = context.read<FinanceProvider>();
     final nameCtrl = TextEditingController();
     var icon = widget.type == 'income' ? 'cash' : 'box';
-    var color = widget.type == 'income' ? 0xFF3EE184 : 0xFF7B6BFF;
+    var color = widget.type == 'income' ? 0xFF4DDB6A : 0xFF654CFF;
     CategoryModel? parent;
     final parentOptions = provider.categories
         .where(

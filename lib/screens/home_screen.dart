@@ -175,13 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1F2937), Color(0xFF273469)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
+              decoration: const BoxDecoration(color: AppTheme.primaryColor),
               child: Row(
                 children: [
                   const AppLogo(size: 54, radius: 16),
