@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
 import '../models/transaction_split_model.dart';
@@ -783,20 +782,11 @@ class FinanceProvider extends ChangeNotifier {
   Future<String> backupCurrentBook() => _db.backupCurrentBook();
 
   Future<String> exportTransactionsCsv() async {
-    final exportsDir = Directory(
-      p.join(await DatabaseService.finzoDir, 'exports'),
-    );
-    if (!await exportsDir.exists()) {
-      await exportsDir.create(recursive: true);
-    }
-
     final stamp = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '')
         .replaceAll('.', '');
-    final file = File(
-      p.join(exportsDir.path, '${currentBookName}_transactions_$stamp.csv'),
-    );
+    final fileName = '${currentBookName}_transactions_$stamp.csv';
 
     const headers = [
       'title',
@@ -846,11 +836,13 @@ class FinanceProvider extends ChangeNotifier {
       ]);
     }
 
-    await file.writeAsString(
-      rows.map((row) => row.map(_csvEscape).join(',')).join('\n'),
-      flush: true,
+    final csv = rows.map((row) => row.map(_csvEscape).join(',')).join('\n');
+    return DatabaseService.saveUserVisibleFile(
+      fileName: fileName,
+      mimeType: 'text/csv',
+      subdirectory: 'exports',
+      bytes: utf8.encode(csv),
     );
-    return file.path;
   }
 
   Future<int> importTransactionsCsv(String sourcePath) async {

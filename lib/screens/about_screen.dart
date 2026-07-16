@@ -44,7 +44,7 @@ class AboutScreen extends StatelessWidget {
             surfaceTintColor: Colors.transparent,
             titleSpacing: 0,
             title: const Text(
-              'About Finzo',
+              'About Us',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -71,6 +71,8 @@ class AboutScreen extends StatelessWidget {
                           .animate()
                           .fadeIn(duration: 280.ms)
                           .slideY(begin: .08, end: 0),
+                      const SizedBox(height: 14),
+                      const _StudioCard(),
                       const SizedBox(height: 18),
                       const _SectionTitle('Built For'),
                       const SizedBox(height: 10),
@@ -122,6 +124,12 @@ class AboutScreen extends StatelessWidget {
                         title: 'Privacy focused',
                         body:
                             'No cloud account is required for everyday tracking.',
+                      ),
+                      const _PrincipleTile(
+                        icon: Icons.folder_special_rounded,
+                        title: 'Visible exports',
+                        body:
+                            'CSV files and book backups are saved to the Finzo folder on your device.',
                       ),
                       const _PrincipleTile(
                         icon: Icons.auto_graph_rounded,
@@ -246,7 +254,7 @@ class _HeroHeader extends StatelessWidget {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Private finance, beautifully offline',
+                        'Private finance by AHS Mobile Labs',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: Colors.white60, fontSize: 12),
@@ -285,6 +293,54 @@ class _PrivacyCard extends StatelessWidget {
       child: const Text(
         'Finzo helps you track spending, accounts, budgets, loans, credit cards, and investments in one local finance book. It is designed for quick daily entry and clear monthly decisions.',
         style: TextStyle(color: Colors.white70, height: 1.55, fontSize: 13),
+      ),
+    );
+  }
+}
+
+class _StudioCard extends StatelessWidget {
+  const _StudioCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: const Row(
+        children: [
+          AppLogo(size: 46, radius: 13),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AHS Mobile Labs',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Independent mobile tools for local-first finance.',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

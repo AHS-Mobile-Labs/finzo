@@ -146,6 +146,111 @@ class DatabaseService {
     return null;
   }
 
+  static Future<String> publicFinzoDisplayPath([
+    String subdirectory = '',
+  ]) async {
+    final safeSubdirectory = _safeRelativeDirectory(subdirectory);
+
+    if (Platform.isAndroid) {
+      final parts = ['Documents', 'Finzo'];
+      if (safeSubdirectory.isNotEmpty) {
+        parts.addAll(safeSubdirectory.split('/'));
+      }
+      return parts.join('/');
+    }
+
+    final dir = await _userVisibleFinzoDirectory(safeSubdirectory);
+    return dir.path;
+  }
+
+  static Future<String> saveUserVisibleFile({
+    required String fileName,
+    required String mimeType,
+    required List<int> bytes,
+    String subdirectory = '',
+  }) async {
+    final safeFileName = _safeFileName(fileName);
+    final safeSubdirectory = _safeRelativeDirectory(subdirectory);
+
+    if (Platform.isAndroid) {
+      try {
+        final savedPath = await _storageChannel
+            .invokeMethod<String>('savePublicFile', {
+              'fileName': safeFileName,
+              'mimeType': mimeType,
+              'subdirectory': safeSubdirectory,
+              'bytes': Uint8List.fromList(bytes),
+            });
+        if (savedPath != null && savedPath.trim().isNotEmpty) {
+          return savedPath;
+        }
+      } on MissingPluginException catch (e) {
+        _log('[DB] Android public save channel missing: $e');
+      } on PlatformException catch (e) {
+        _log('[DB] Android public save failed: ${e.message}');
+      } catch (e) {
+        _log('[DB] Error saving public file through Android channel: $e');
+      }
+    }
+
+    final exportDir = await _userVisibleFinzoDirectory(safeSubdirectory);
+    if (!await exportDir.exists()) {
+      await exportDir.create(recursive: true);
+    }
+
+    final file = File(p.join(exportDir.path, safeFileName));
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  static Future<Directory> _userVisibleFinzoDirectory(
+    String safeSubdirectory,
+  ) async {
+    Directory? baseDir;
+
+    if (Platform.isAndroid) {
+      baseDir = await _androidPublicDocumentsDirectory();
+    }
+
+    baseDir ??= await _downloadsFinzoDirectory();
+    baseDir ??= await _preferredDocumentsDirectory();
+    baseDir ??= await _fallbackDocumentsDirectory();
+
+    return _appendRelativeDirectory(baseDir, safeSubdirectory);
+  }
+
+  static Future<Directory?> _downloadsFinzoDirectory() async {
+    try {
+      final downloads = await getDownloadsDirectory();
+      if (downloads == null) return null;
+      return Directory(p.join(downloads.path, 'Finzo'));
+    } catch (e) {
+      _log('[DB] Downloads directory unavailable: $e');
+      return null;
+    }
+  }
+
+  static Directory _appendRelativeDirectory(
+    Directory baseDir,
+    String safeSubdirectory,
+  ) {
+    if (safeSubdirectory.isEmpty) return baseDir;
+    return Directory(p.joinAll([baseDir.path, ...safeSubdirectory.split('/')]));
+  }
+
+  static String _safeFileName(String value) {
+    final fileName = p.basename(value).replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    return fileName.trim().isEmpty ? 'finzo_export' : fileName.trim();
+  }
+
+  static String _safeRelativeDirectory(String value) {
+    return value
+        .split(RegExp(r'[\\/]+'))
+        .map((part) => part.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim())
+        .where((part) => part.isNotEmpty && part != '.' && part != '..')
+        .join('/');
+  }
+
   static Future<bool> _ensureWritable(Directory dir) async {
     try {
       if (!await dir.exists()) {
@@ -324,11 +429,6 @@ class DatabaseService {
       _log('[DB] Could not checkpoint before backup: $e');
     }
 
-    final backupsDir = Directory(p.join(await finzoDir, 'backups'));
-    if (!await backupsDir.exists()) {
-      await backupsDir.create(recursive: true);
-    }
-
     final safeBook = (_currentBookName ?? 'finzo').replaceAll(
       RegExp(r'[^\w\-]'),
       '_',
@@ -337,9 +437,12 @@ class DatabaseService {
         .toIso8601String()
         .replaceAll(':', '')
         .replaceAll('.', '');
-    final destPath = p.join(backupsDir.path, '${safeBook}_$stamp.books.db');
-    await File(sourcePath).copy(destPath);
-    return destPath;
+    return saveUserVisibleFile(
+      fileName: '${safeBook}_$stamp.books.db',
+      mimeType: 'application/octet-stream',
+      subdirectory: 'backups',
+      bytes: await File(sourcePath).readAsBytes(),
+    );
   }
 
   static Future<String> saveReceiptImage(String sourcePath) async {

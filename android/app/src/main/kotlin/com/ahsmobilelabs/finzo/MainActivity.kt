@@ -2,8 +2,11 @@ package com.ahsmobilelabs.finzo
 
 import android.content.ActivityNotFoundException
 import android.content.ClipData
+import android.content.ContentValues
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -30,6 +33,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getDocumentsDirectory" -> result.success(getPublicDocumentsDirectory())
+                    "savePublicFile" -> savePublicFile(call, result)
                     else -> result.notImplemented()
                 }
             }
@@ -49,6 +53,114 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun savePublicFile(call: MethodCall, result: MethodChannel.Result) {
+        val fileName = cleanFileName(call.argument<String>("fileName").orEmpty())
+        val mimeType = call.argument<String>("mimeType").orEmpty()
+            .ifBlank { "application/octet-stream" }
+        val subdirectory = cleanRelativeDirectory(
+            call.argument<String>("subdirectory").orEmpty(),
+        )
+        val bytes = call.argument<ByteArray>("bytes")
+
+        if (fileName.isBlank()) {
+            result.error("missing_file_name", "Export file name was missing.", null)
+            return
+        }
+
+        if (bytes == null) {
+            result.error("missing_bytes", "Export file data was missing.", null)
+            return
+        }
+
+        try {
+            val savedPath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                savePublicFileWithMediaStore(fileName, mimeType, subdirectory, bytes)
+            } else {
+                savePublicFileWithFileApi(fileName, subdirectory, bytes)
+            }
+            result.success(savedPath)
+        } catch (e: Exception) {
+            result.error(
+                "save_public_file_failed",
+                e.localizedMessage ?: "Unable to save the export file.",
+                null,
+            )
+        }
+    }
+
+    private fun savePublicFileWithMediaStore(
+        fileName: String,
+        mimeType: String,
+        subdirectory: String,
+        bytes: ByteArray,
+    ): String {
+        val relativePath = buildRelativeDocumentsPath(subdirectory)
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+
+        val resolver = applicationContext.contentResolver
+        val uri = resolver.insert(MediaStore.Files.getContentUri("external"), values)
+            ?: throw IllegalStateException("Could not create export file.")
+
+        resolver.openOutputStream(uri)?.use { stream ->
+            stream.write(bytes)
+        } ?: throw IllegalStateException("Could not open export file.")
+
+        values.clear()
+        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+
+        return "${relativePath.trimEnd('/')}/$fileName"
+    }
+
+    private fun savePublicFileWithFileApi(
+        fileName: String,
+        subdirectory: String,
+        bytes: ByteArray,
+    ): String {
+        val documentsDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOCUMENTS,
+        )
+        val finzoDir = if (subdirectory.isBlank()) {
+            File(documentsDir, "Finzo")
+        } else {
+            File(documentsDir, "Finzo/$subdirectory")
+        }
+
+        if (!finzoDir.exists() && !finzoDir.mkdirs()) {
+            throw IllegalStateException("Could not create ${finzoDir.absolutePath}.")
+        }
+
+        val target = File(finzoDir, fileName)
+        target.writeBytes(bytes)
+        return target.absolutePath
+    }
+
+    private fun buildRelativeDocumentsPath(subdirectory: String): String {
+        val parts = mutableListOf(Environment.DIRECTORY_DOCUMENTS, "Finzo")
+        if (subdirectory.isNotBlank()) {
+            parts.addAll(subdirectory.split("/").filter { it.isNotBlank() })
+        }
+        return parts.joinToString("/") + "/"
+    }
+
+    private fun cleanFileName(value: String): String {
+        val cleaned = value.replace(Regex("""[\\/:*?"<>|]"""), "_").trim()
+        return cleaned.ifBlank { "finzo_export" }
+    }
+
+    private fun cleanRelativeDirectory(value: String): String {
+        return value
+            .split(Regex("""[/\\]+"""))
+            .map { it.replace(Regex("""[\\/:*?"<>|]"""), "_").trim() }
+            .filter { it.isNotBlank() && it != "." && it != ".." }
+            .joinToString("/")
     }
 
     private fun shareLinktreeQr(call: MethodCall, result: MethodChannel.Result) {
