@@ -362,6 +362,24 @@ class DatabaseService {
     return destPath;
   }
 
+  static Future<String> saveReceiptImageBytes(
+    List<int> bytes, {
+    String extension = '.jpg',
+  }) async {
+    final receiptsDir = Directory(p.join(await finzoDir, 'receipts'));
+    if (!await receiptsDir.exists()) {
+      await receiptsDir.create(recursive: true);
+    }
+
+    final safeExtension = extension.startsWith('.') ? extension : '.$extension';
+    final destPath = p.join(
+      receiptsDir.path,
+      'receipt_${DateTime.now().microsecondsSinceEpoch}$safeExtension',
+    );
+    await File(destPath).writeAsBytes(bytes, flush: true);
+    return destPath;
+  }
+
   /// Delete a book database by name
   Future<void> deleteBook(String bookName) async {
     // Don't delete the currently open book
@@ -1462,6 +1480,18 @@ class DatabaseService {
       'key': key,
       'value': value,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<Map<String, String>> getSettingsWithPrefix(String prefix) async {
+    final db = await database;
+    final maps = await db.query(
+      'settings',
+      where: 'key LIKE ?',
+      whereArgs: ['$prefix%'],
+    );
+    return {
+      for (final map in maps) map['key'] as String: map['value'] as String,
+    };
   }
 
   // ─── AUTO EMI ────────────────────────────────────────────────────────────

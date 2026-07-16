@@ -34,6 +34,7 @@ class FinanceProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _categorySpending = [];
   List<String> _recentExpenseIds = [];
   List<String> _recentIncomeIds = [];
+  Map<String, String> _receiptCategoryMemory = {};
 
   bool _isLoading = false;
   DateTime _selectedMonth = DateTime.now();
@@ -193,6 +194,176 @@ class FinanceProvider extends ChangeNotifier {
     }
   }
 
+  CategoryModel? guessReceiptCategory(String merchantName) {
+    final merchant = _normaliseMerchantKey(merchantName);
+    if (merchant.isEmpty) return _fallbackExpenseCategory();
+
+    final remembered = _rememberedReceiptCategory(merchant);
+    if (remembered != null) return remembered;
+
+    CategoryModel? byNames(List<String> names) {
+      for (final name in names) {
+        for (final category in _categories) {
+          final displayName = categoryDisplayName(category).toLowerCase();
+          if ((category.type == 'expense' || category.type == 'both') &&
+              (category.name.toLowerCase() == name.toLowerCase() ||
+                  displayName == name.toLowerCase())) {
+            return category;
+          }
+        }
+      }
+      return null;
+    }
+
+    bool hasAny(List<String> keywords) {
+      return keywords.any((keyword) => merchant.contains(keyword));
+    }
+
+    if (hasAny([
+      'reliance fresh',
+      'dmart',
+      'big bazaar',
+      'more',
+      'grocery',
+      'supermarket',
+      'fresh',
+      'mart',
+    ])) {
+      return byNames(['Groceries', 'Grocery', 'Food & Dining', 'Shopping']) ??
+          _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'zomato',
+      'swiggy',
+      'restaurant',
+      'cafe',
+      'coffee',
+      'pizza',
+      'domino',
+      'kfc',
+      'mcdonald',
+    ])) {
+      return byNames(['Food & Dining']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'uber',
+      'ola',
+      'rapido',
+      'metro',
+      'rail',
+      'bus',
+      'fuel',
+      'petrol',
+      'diesel',
+    ])) {
+      return byNames(['Transport']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'apollo',
+      'medplus',
+      'pharmacy',
+      'medical',
+      'hospital',
+      'clinic',
+    ])) {
+      return byNames(['Health']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'electric',
+      'water',
+      'gas',
+      'broadband',
+      'internet',
+      'mobile',
+      'airtel',
+      'jio',
+      'vi ',
+    ])) {
+      return byNames(['Bills & Utilities']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny(['amazon', 'flipkart', 'myntra', 'store', 'mall', 'shop'])) {
+      return byNames(['Shopping']) ?? _fallbackExpenseCategory();
+    }
+
+    return _fallbackExpenseCategory();
+  }
+
+  Future<void> rememberReceiptCategory(
+    String merchantName,
+    String categoryId,
+  ) async {
+    final merchant = _normaliseMerchantKey(merchantName);
+    if (merchant.isEmpty || categoryId.isEmpty) return;
+    _receiptCategoryMemory[merchant] = categoryId;
+    await _db.setSetting('receipt_category_$merchant', categoryId);
+  }
+
+  List<TransactionModel> findPotentialDuplicateExpense({
+    required String merchantName,
+    required double amount,
+    required DateTime date,
+    String? excludeId,
+  }) {
+    final merchant = _normaliseMerchantKey(merchantName);
+    final day = DateTime(date.year, date.month, date.day);
+
+    final scored = <({TransactionModel tx, int score})>[];
+    for (final tx in _transactions) {
+      if (tx.id == excludeId || tx.type != 'expense') continue;
+      if ((tx.amount - amount).abs() > 0.01) continue;
+
+      final txDay = DateTime(tx.date.year, tx.date.month, tx.date.day);
+      final dayDelta = txDay.difference(day).inDays.abs();
+      if (dayDelta > 1) continue;
+
+      var score = dayDelta == 0 ? 3 : 1;
+      final title = _normaliseMerchantKey(tx.title);
+      if (merchant.isNotEmpty &&
+          (title == merchant ||
+              title.contains(merchant) ||
+              merchant.contains(title))) {
+        score += 4;
+      }
+      if (tx.receiptPath != null && tx.receiptPath!.isNotEmpty) {
+        score += 1;
+      }
+      scored.add((tx: tx, score: score));
+    }
+
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored.take(3).map((entry) => entry.tx).toList();
+  }
+
+  CategoryModel? _rememberedReceiptCategory(String normalisedMerchant) {
+    final categoryId = _receiptCategoryMemory[normalisedMerchant];
+    if (categoryId == null) return null;
+    final category = getCategoryById(categoryId);
+    if (category == null) return null;
+    if (category.type != 'expense' && category.type != 'both') return null;
+    return category;
+  }
+
+  CategoryModel? _fallbackExpenseCategory() {
+    for (final id in ['cat_other_exp', 'cat_food', 'cat_shop']) {
+      final category = getCategoryById(id);
+      if (category != null) return category;
+    }
+    for (final category in _categories) {
+      if (category.type == 'expense' || category.type == 'both') {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  String _normaliseMerchantKey(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   // ─── INIT ─────────────────────────────────────────────────────────────────
 
   Future<void> init() async {
@@ -212,6 +383,12 @@ class FinanceProvider extends ChangeNotifier {
 
       await _loadRecentCategories().catchError((e) {
         _logFinance('[FinanceProvider] Error loading recent categories: $e');
+      });
+
+      await _loadReceiptCategoryMemory().catchError((e) {
+        _logFinance(
+          '[FinanceProvider] Error loading receipt category memory: $e',
+        );
       });
 
       // Load all data with timeout
@@ -268,6 +445,14 @@ class FinanceProvider extends ChangeNotifier {
       _recentExpenseIds = [];
       _recentIncomeIds = [];
     }
+  }
+
+  Future<void> _loadReceiptCategoryMemory() async {
+    final settings = await _db.getSettingsWithPrefix('receipt_category_');
+    _receiptCategoryMemory = {
+      for (final entry in settings.entries)
+        entry.key.replaceFirst('receipt_category_', ''): entry.value,
+    };
   }
 
   Future<void> setUserName(String name) async {
@@ -565,6 +750,8 @@ class FinanceProvider extends ChangeNotifier {
     await _db.openBook(bookName);
     await _loadCurrency();
     await _loadUserName();
+    await _loadRecentCategories();
+    await _loadReceiptCategoryMemory();
     await _loadAll();
     await _db.processAutoEmis();
     await _loadAll();
@@ -579,6 +766,8 @@ class FinanceProvider extends ChangeNotifier {
     await _db.createBook(bookName);
     await _loadCurrency();
     await _loadUserName();
+    await _loadRecentCategories();
+    await _loadReceiptCategoryMemory();
     await _loadAll();
     _isLoading = false;
     notifyListeners();
