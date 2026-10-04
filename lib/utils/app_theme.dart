@@ -2,23 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const primaryColor = Color(0xFF7B6BFF);
-  static const incomeColor = Color(0xFF3EE184);
-  static const expenseColor = Color(0xFFFF7070);
-  static const warningColor = Color(0xFFFFD95A);
-  static const infoColor = Color(0xFF6AA5FF);
-  static const surfaceColor = Color(0xFF161616);
-  static const cardColor = Color(0xFF1E1E1E);
-  static const elevatedSurfaceColor = Color(0xFF262626);
-  static const backgroundColor = Color(0xFF0D0D0D);
-  static const borderColor = Color(0xFF2D2D2D);
-  static const dividerColor = Color(0xFF383838);
-  static const inputBorderColor = Color(0xFF404040);
-  static const primaryTextColor = Color(0xFFF5F5F5);
-  static const secondaryTextColor = Color(0xFFB0B0B8);
-  static const mutedTextColor = Color(0xFF7A7A85);
-  static const disabledTextColor = Color(0xFF5A5A63);
-  static const glassColor = Color(0x661E1E1E);
+  // Brand colors extracted directly from Finzo logo
+  static const primaryColor = Color(
+    0xFF635BFF,
+  ); // Electric Iris Purple ("F" and "inzo")
+  static const incomeColor = Color(
+    0xFF00E676,
+  ); // Mint Emerald Green (banknote & right bar)
+  static const expenseColor = Color(0xFFFF5252); // Coral Red
+  static const warningColor = Color(0xFFFFB800); // Golden Amber Coin
+  static const goldColor = Color(0xFFFFB800); // Golden Amber
+  static const infoColor = Color(0xFF38BDF8); // Electric Sky Blue
+  static const surfaceColor = Color(
+    0xFF11131B,
+  ); // Obsidian surface with rich indigo undertone
+  static const cardColor = Color(0xFF171924); // Obsidian elevated card surface
+  static const elevatedSurfaceColor = Color(
+    0xFF202333,
+  ); // Interactive elevated layers
+  static const backgroundColor = Color(
+    0xFF08090E,
+  ); // Pitch obsidian OLED canvas
+  static const borderColor = Color(0xFF25283B);
+  static const dividerColor = Color(0xFF1D202F);
+  static const inputBorderColor = Color(0xFF2E324A);
+  static const primaryTextColor = Color(0xFFF8FAFC);
+  static const secondaryTextColor = Color(0xFF94A3B8);
+  static const mutedTextColor = Color(0xFF64748B);
+  static const disabledTextColor = Color(0xFF475569);
+  static const glassColor = Color(0x99171924);
+
+  // Logo dual-accent brand gradients ("BUDGET FOR SUCCESS")
+  static const brandGradient = LinearGradient(
+    colors: [primaryColor, incomeColor],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  static const heroGradient = LinearGradient(
+    colors: [Color(0xFF635BFF), Color(0xFF4338CA)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const goldGradient = LinearGradient(
+    colors: [Color(0xFFFFC107), Color(0xFFF59E0B)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   static ThemeData get dark {
     return ThemeData(
@@ -55,7 +86,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
         backgroundColor: surfaceColor,
-        indicatorColor: primaryColor.withAlpha(42),
+        indicatorColor: primaryColor.withAlpha(46),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             color: states.contains(WidgetState.selected)
@@ -91,15 +122,15 @@ class AppTheme {
         filled: true,
         fillColor: cardColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: inputBorderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: primaryColor, width: 1.5),
         ),
         labelStyle: const TextStyle(color: secondaryTextColor),
@@ -110,7 +141,7 @@ class AppTheme {
           backgroundColor: primaryColor,
           foregroundColor: primaryTextColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           padding: const EdgeInsets.symmetric(vertical: 14),
           textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
@@ -121,7 +152,7 @@ class AppTheme {
         selectedColor: primaryColor.withAlpha(77),
         labelStyle: const TextStyle(color: primaryTextColor),
         side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -167,14 +198,15 @@ class AppConstants {
     'box',
   ];
 
+  // Distinct, harmonious fintech color palette matching logo
   static const List<int> colorOptions = [
-    0xFF7B6BFF,
-    0xFF3EE184,
-    0xFFFFD95A,
-    0xFFFF7070,
-    0xFF6AA5FF,
-    0xFFB0B0B8,
-    0xFF5B47F2,
-    0xFF27C46B,
+    0xFF635BFF, // Electric Iris Purple
+    0xFF00E676, // Mint Emerald Green
+    0xFFFFB800, // Golden Amber
+    0xFFFF5252, // Coral Red
+    0xFF38BDF8, // Sky Blue
+    0xFFEC4899, // Pink Rose
+    0xFF8B5CF6, // Deep Violet
+    0xFF14B8A6, // Cyan Teal
   ];
 }

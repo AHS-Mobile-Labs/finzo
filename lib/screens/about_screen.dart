@@ -8,8 +8,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/app_theme.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/pressable_card.dart';
 
 const _linktreeUrl = 'https://linktr.ee/ahsmobilelabs';
+const _githubUrl = 'https://github.com/AHS-Mobile-Labs/finzo';
+const _emailAddress = 'ahsmobilelabs@gmail.com';
 const _linktreeQrAsset = 'assets/app image/Linktree QR code/ahsmobilelabs.png';
 
 class AboutScreen extends StatelessWidget {
@@ -21,11 +24,9 @@ class AboutScreen extends StatelessWidget {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        // Fallback for Android - try launching with platform default
         await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
-      // Silent catch for unavailable apps
       debugPrint('Could not launch URL: $e');
     }
   }
@@ -33,226 +34,147 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'About Finzo',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            toolbarHeight: 64,
-            expandedHeight: 220,
-            backgroundColor: AppTheme.backgroundColor,
-            surfaceTintColor: Colors.transparent,
-            titleSpacing: 0,
-            title: const Text(
-              'About Finzo',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            flexibleSpace: const FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: _HeroHeader(),
-            ),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              MediaQuery.sizeOf(context).width < 360 ? 16 : 20,
-              18,
-              MediaQuery.sizeOf(context).width < 360 ? 16 : 20,
-              28,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const _PrivacyCard()
-                          .animate()
-                          .fadeIn(duration: 280.ms)
-                          .slideY(begin: .08, end: 0),
-                      const SizedBox(height: 18),
-                      const _SectionTitle('Built For'),
-                      const SizedBox(height: 10),
-                      const Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          _FeatureChip(
-                            icon: Icons.account_balance_wallet_rounded,
-                            label: 'Accounts',
-                          ),
-                          _FeatureChip(
-                            icon: Icons.swap_horiz_rounded,
-                            label: 'Transfers',
-                          ),
-                          _FeatureChip(
-                            icon: Icons.pie_chart_rounded,
-                            label: 'Budgets',
-                          ),
-                          _FeatureChip(
-                            icon: Icons.insights_rounded,
-                            label: 'Analytics',
-                          ),
-                          _FeatureChip(
-                            icon: Icons.credit_card_rounded,
-                            label: 'Cards',
-                          ),
-                          _FeatureChip(
-                            icon: Icons.trending_up_rounded,
-                            label: 'Investing',
-                          ),
-                          _FeatureChip(
-                            icon: Icons.account_balance_rounded,
-                            label: 'Loans',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      const _SectionTitle('Principles'),
-                      const SizedBox(height: 10),
-                      const _PrincipleTile(
-                        icon: Icons.offline_bolt_rounded,
-                        title: 'Offline first',
-                        body:
-                            'Your finance book stays local and available anytime.',
-                      ),
-                      const _PrincipleTile(
-                        icon: Icons.lock_rounded,
-                        title: 'Privacy focused',
-                        body:
-                            'No cloud account is required for everyday tracking.',
-                      ),
-                      const _PrincipleTile(
-                        icon: Icons.auto_graph_rounded,
-                        title: 'Decision ready',
-                        body:
-                            'Dashboards, budgets, loans, cards, and investments stay connected.',
-                      ),
-                      const SizedBox(height: 24),
-                      const _SectionTitle('Connect'),
-                      const SizedBox(height: 10),
-                      _ContactButton(
-                        icon: Icons.mail_outline_rounded,
-                        label: 'Email',
-                        subtitle: 'ahsmobilelabs@gmail.com',
-                        url: 'mailto:ahsmobilelabs@gmail.com',
-                        onTap: _launchUrl,
-                      ),
-                      const SizedBox(height: 10),
-                      _ContactButton(
-                        icon: Icons.code_rounded,
-                        label: 'GitHub - AHS Mobile Labs',
-                        subtitle: 'github.com/AHS-Mobile-Labs',
-                        url: 'https://github.com/AHS-Mobile-Labs',
-                        onTap: _launchUrl,
-                      ),
-                      const SizedBox(height: 10),
-                      _ContactButton(
-                        icon: Icons.code_rounded,
-                        label: 'GitHub - Finzo',
-                        subtitle: 'github.com/AHS-Mobile-Labs/finzo',
-                        url: 'https://github.com/AHS-Mobile-Labs/finzo',
-                        onTap: _launchUrl,
-                      ),
-                      const SizedBox(height: 10),
-                      _ContactButton(
-                        icon: Icons.camera_alt_rounded,
-                        label: 'Instagram',
-                        subtitle: '@ahsmobilelabs',
-                        url: 'https://www.instagram.com/ahsmobilelabs',
-                        onTap: _launchUrl,
-                      ),
-                      const SizedBox(height: 10),
-                      _ContactButton(
-                        icon: Icons.play_circle_outline_rounded,
-                        label: 'YouTube',
-                        subtitle: '@AHSMobileLabs',
-                        url: 'https://www.youtube.com/@AHSMobileLabs',
-                        onTap: _launchUrl,
-                      ),
-                      const SizedBox(height: 10),
-                      _ContactButton(
-                        icon: Icons.tag_rounded,
-                        label: 'X (Twitter)',
-                        subtitle: '@ahsmobilelabs',
-                        url: 'https://x.com/ahsmobilelabs',
-                        onTap: _launchUrl,
-                      ),
-                      const SizedBox(height: 18),
-                      const _LinktreeQrCard(),
-                      const SizedBox(height: 28),
-                      const Center(
-                        child: Text(
-                          'Finzo v1.0.1  |  AHS Mobile Labs',
-                          style: TextStyle(color: Colors.white38, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroHeader extends StatelessWidget {
-  const _HeroHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final horizontalPadding = width < 360 ? 16.0 : 20.0;
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppTheme.surfaceColor,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            76,
-            horizontalPadding,
-            22,
-          ),
-          child: Align(
-            alignment: Alignment.bottomLeft,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const AppLogo(size: 64, radius: 18),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Finzo',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                        ),
+                // Hero Branding Block
+                const _AboutHero()
+                    .animate()
+                    .fadeIn(duration: 300.ms)
+                    .slideY(begin: 0.05, end: 0),
+                const SizedBox(height: 24),
+
+                // Core Principles / Value Proposition
+                const _SectionHeader(
+                  title: 'Core Values',
+                  subtitle: 'Why Finzo is built differently',
+                ),
+                const SizedBox(height: 12),
+                const _ValueCard(
+                  icon: Icons.shield_rounded,
+                  iconColor: AppTheme.incomeColor,
+                  title: '100% Offline & Private',
+                  description:
+                      'No sign-ups, no remote servers, and zero data tracking. Your financial books stay strictly on your device.',
+                ),
+                const SizedBox(height: 10),
+                const _ValueCard(
+                  icon: Icons.inventory_2_rounded,
+                  iconColor: AppTheme.primaryColor,
+                  title: 'Complete Data Ownership',
+                  description:
+                      'Export your entire database or CSV ledgers with one tap. Your data is yours forever in open, portable formats.',
+                ),
+                const SizedBox(height: 10),
+                const _ValueCard(
+                  icon: Icons.auto_awesome_rounded,
+                  iconColor: AppTheme.goldColor,
+                  title: 'On-Device Financial Intelligence',
+                  description:
+                      '50/30/20 rule analytics, emergency runway calculators, and 4-pillar health scoring calculated securely offline.',
+                ),
+                const SizedBox(height: 26),
+
+                // Studio & Developer
+                const _SectionHeader(
+                  title: 'Creator & Studio',
+                  subtitle: 'Crafted with care for financial independence',
+                ),
+                const SizedBox(height: 12),
+                const _StudioCard(),
+                const SizedBox(height: 12),
+
+                // Fast Action Links
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickActionButton(
+                        icon: Icons.mail_outline_rounded,
+                        label: 'Support',
+                        color: const Color(0xFF38BDF8),
+                        onTap: () => _launchUrl('mailto:$_emailAddress'),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Private finance, beautifully offline',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionButton(
+                        icon: Icons.code_rounded,
+                        label: 'GitHub',
+                        color: AppTheme.primaryColor,
+                        onTap: () => _launchUrl(_githubUrl),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionButton(
+                        icon: Icons.link_rounded,
+                        label: 'Links',
+                        color: AppTheme.incomeColor,
+                        onTap: () => _launchUrl(_linktreeUrl),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Share / QR Card
+                const _ShareFinzoCard(),
+                const SizedBox(height: 32),
+
+                // Footer
+                Column(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.brandGradient,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'BUDGET FOR SUCCESS',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Finzo v1.0.1 • AHS Mobile Labs',
+                      style: TextStyle(color: Colors.white24, fontSize: 11),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -263,37 +185,301 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-class _PrivacyCard extends StatelessWidget {
-  const _PrivacyCard();
+class _AboutHero extends StatelessWidget {
+  const _AboutHero();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor.withAlpha(220),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withAlpha(18)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(80),
-            blurRadius: 24,
-            offset: const Offset(0, 16),
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white10),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppTheme.primaryColor.withAlpha(20), AppTheme.cardColor],
+        ),
+      ),
+      child: Column(
+        children: [
+          const AppLogo(size: 80, radius: 24),
+          const SizedBox(height: 16),
+          const Text(
+            'Finzo',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withAlpha(40),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.primaryColor.withAlpha(80),
+                  ),
+                ),
+                child: const Text(
+                  'v1.0.1',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.incomeColor.withAlpha(30),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.incomeColor.withAlpha(60)),
+                ),
+                child: const Text(
+                  'Offline-First',
+                  style: TextStyle(
+                    color: AppTheme.incomeColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'A private, distraction-free personal finance book engineered to help you track spending, build emergency runways, and master your money.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
           ),
         ],
-      ),
-      child: const Text(
-        'Finzo helps you track spending, accounts, budgets, loans, credit cards, and investments in one local finance book. It is designed for quick daily entry and clear monthly decisions.',
-        style: TextStyle(color: Colors.white70, height: 1.55, fontSize: 13),
       ),
     );
   }
 }
 
-class _LinktreeQrCard extends StatelessWidget {
-  static const _shareChannel = MethodChannel('com.ahsmobilelabs.finzo/share');
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
 
-  const _LinktreeQrCard();
+  const _SectionHeader({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
+class _ValueCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String description;
+
+  const _ValueCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconColor.withAlpha(25),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioCard extends StatelessWidget {
+  const _StudioCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(14)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withAlpha(30),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.terminal_rounded,
+              color: AppTheme.primaryColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AHS Mobile Labs',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Independent studio crafting local-first mobile software.',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableCard(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withAlpha(40)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShareFinzoCard extends StatefulWidget {
+  const _ShareFinzoCard();
+
+  @override
+  State<_ShareFinzoCard> createState() => _ShareFinzoCardState();
+}
+
+class _ShareFinzoCardState extends State<_ShareFinzoCard> {
+  static const _shareChannel = MethodChannel('com.ahsmobilelabs.finzo/share');
+  bool _showQr = false;
 
   Future<void> _shareQrCode(BuildContext context) async {
     try {
@@ -324,17 +510,11 @@ class _LinktreeQrCard extends StatelessWidget {
         'text': 'AHS Mobile Labs\n$_linktreeUrl',
         'imagePath': imageFile.path,
       });
-    } on PlatformException catch (e) {
-      debugPrint('Share platform error: ${e.message}');
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Unable to open the share sheet.')),
-      );
     } catch (e) {
       debugPrint('Share error: $e');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to share the QR code.')),
+        const SnackBar(content: Text('Unable to open share sheet.')),
       );
     }
   }
@@ -342,276 +522,94 @@ class _LinktreeQrCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withAlpha(16)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
       ),
       child: Column(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              color: Colors.white,
-              child: Image.asset(
-                _linktreeQrAsset,
-                width: 180,
-                height: 180,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'AHS Mobile Labs',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Scan or share the QR code with the project link.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => _shareQrCode(context),
-              icon: const Icon(Icons.share_rounded, size: 18),
-              label: const Text('Share Link and QR'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(6),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withAlpha(12)),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.link_rounded,
-                  color: AppTheme.primaryColor,
-                  size: 14,
-                ),
-                SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'linktr.ee/ahsmobilelabs',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 15,
-        fontWeight: FontWeight.w800,
-      ),
-    );
-  }
-}
-
-class _FeatureChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _FeatureChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withAlpha(16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppTheme.primaryColor, size: 17),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrincipleTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String body;
-
-  const _PrincipleTile({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withAlpha(14)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withAlpha(34),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  body,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ContactButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final String url;
-  final Future<void> Function(String) onTap;
-
-  const _ContactButton({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.url,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onTap(url),
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withAlpha(16)),
-          ),
-          child: Row(
+          Row(
             children: [
-              Icon(icon, color: AppTheme.primaryColor, size: 22),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.qr_code_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      label,
-                      style: const TextStyle(
+                      'Share Finzo',
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                      ),
+                      'Share with friends or view link QR',
+                      style: TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.arrow_outward_rounded,
-                color: Colors.white38,
-                size: 18,
+              IconButton(
+                onPressed: () => setState(() => _showQr = !_showQr),
+                icon: Icon(
+                  _showQr
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: Colors.white54,
+                ),
+                tooltip: _showQr ? 'Hide QR' : 'Show QR',
               ),
             ],
           ),
-        ),
+          if (_showQr) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                color: Colors.white,
+                child: Image.asset(
+                  _linktreeQrAsset,
+                  width: 150,
+                  height: 150,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _shareQrCode(context),
+                icon: const Icon(Icons.share_rounded, size: 16),
+                label: const Text('Share Link & QR'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

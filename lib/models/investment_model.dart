@@ -85,7 +85,7 @@ extension InvestmentTypeExt on InvestmentType {
   int get color {
     switch (this) {
       case InvestmentType.mutualFund:
-        return 0xFF6C63FF;
+        return 0xFF654CFF;
       case InvestmentType.stocks:
         return 0xFF2ECC71;
       case InvestmentType.gold:

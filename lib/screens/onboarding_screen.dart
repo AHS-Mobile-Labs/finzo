@@ -81,6 +81,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       await DatabaseService.instance.setSetting('user_name', finalName);
+      await DatabaseService.instance.setSetting('tour_seen', 'true');
       widget.onComplete();
     } catch (e) {
       setState(() => _error = e.toString());

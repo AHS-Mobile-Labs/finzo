@@ -7,6 +7,7 @@ import '../utils/app_theme.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/quick_add_transaction_sheet.dart';
 import '../widgets/quick_tour_overlay.dart';
+import '../widgets/receipt_scan_flow.dart';
 import 'about_screen.dart';
 import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
@@ -114,7 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 isScrollControlled: true,
                 requestFocus: true,
                 backgroundColor: Colors.transparent,
-                builder: (_) => const QuickAddTransactionSheet(),
+                builder: (_) => QuickAddTransactionSheet(
+                  onScanReceipt: () => ReceiptScanFlow.start(context),
+                ),
               );
             },
             backgroundColor: AppTheme.primaryColor,
@@ -175,13 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1F2937), Color(0xFF273469)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
+              decoration: const BoxDecoration(color: AppTheme.primaryColor),
               child: Row(
                 children: [
                   const AppLogo(size: 54, radius: 16),

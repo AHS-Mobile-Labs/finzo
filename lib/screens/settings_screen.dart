@@ -5,6 +5,8 @@ import '../models/currency_model.dart';
 import '../providers/finance_provider.dart';
 import '../services/database_service.dart';
 import '../utils/app_theme.dart';
+import '../widgets/app_logo.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -18,6 +20,9 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _SettingsHeader(provider: provider),
+          const SizedBox(height: 24),
+
           // ─── Profile Section ──────────────────────────────────────
           const _SectionTitle(title: 'Profile'),
           const SizedBox(height: 8),
@@ -80,27 +85,30 @@ class SettingsScreen extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Finzo',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Offline Personal Finance Manager',
-                    style: TextStyle(color: Colors.white54, fontSize: 13),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Version 1.0.1',
-                    style: TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                ],
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
               ),
+              leading: const AppLogo(size: 42, radius: 12),
+              title: const Text(
+                'About Finzo',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Offline Personal Finance Manager  |  Version 1.0.1',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white38,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
+                );
+              },
             ),
           ),
         ],
@@ -136,6 +144,64 @@ class SettingsScreen extends StatelessWidget {
               Navigator.pop(ctx);
             },
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  final FinanceProvider provider;
+
+  const _SettingsHeader({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Row(
+        children: [
+          const AppLogo(size: 52, radius: 15),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  provider.userName.isNotEmpty ? provider.userName : 'Finzo',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${provider.currentBookName}  |  ${provider.currency.code}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'About Finzo',
+            icon: const Icon(Icons.info_outline_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
+              );
+            },
           ),
         ],
       ),
@@ -231,6 +297,36 @@ class _DatabaseSection extends StatelessWidget {
               );
             },
           ),
+          FutureBuilder<String>(
+            future: DatabaseService.publicFinzoDisplayPath('exports'),
+            builder: (context, snap) {
+              final exportPath = snap.data ?? 'Documents/Finzo/exports';
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.folder_special_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Exports: $exportPath',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           const Divider(color: Colors.white12, height: 1),
           ListTile(
             leading: const Icon(
@@ -239,6 +335,10 @@ class _DatabaseSection extends StatelessWidget {
               size: 20,
             ),
             title: const Text('Switch Book', style: TextStyle(fontSize: 14)),
+            subtitle: const Text(
+              'Open another local finance book',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
             trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _showSwitchBookSheet(context),
           ),
@@ -252,6 +352,10 @@ class _DatabaseSection extends StatelessWidget {
               'Create New Book',
               style: TextStyle(fontSize: 14),
             ),
+            subtitle: const Text(
+              'Start a separate set of accounts',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
             trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _showCreateBookDialog(context),
           ),
@@ -261,9 +365,67 @@ class _DatabaseSection extends StatelessWidget {
               color: Colors.white54,
               size: 20,
             ),
-            title: const Text('Import Book', style: TextStyle(fontSize: 14)),
+            title: const Text(
+              'Restore or Import Book',
+              style: TextStyle(fontSize: 14),
+            ),
+            subtitle: const Text(
+              'Select a .books.db backup file',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
             trailing: const Icon(Icons.chevron_right, color: Colors.white38),
             onTap: () => _importBook(context),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.backup_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Backup Current Book',
+              style: TextStyle(fontSize: 14),
+            ),
+            subtitle: const Text(
+              'Save to Finzo/backups outside the app',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () => _backupBook(context),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.upload_file_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Export Transactions CSV',
+              style: TextStyle(fontSize: 14),
+            ),
+            subtitle: const Text(
+              'Save to Finzo/exports outside the app',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () => _exportTransactionsCsv(context),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.download_rounded,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: const Text(
+              'Import Transactions CSV',
+              style: TextStyle(fontSize: 14),
+            ),
+            subtitle: const Text(
+              'Bring transactions from a .csv file',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () => _importTransactionsCsv(context),
           ),
         ],
       ),
@@ -351,6 +513,68 @@ class _DatabaseSection extends StatelessWidget {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _backupBook(BuildContext context) async {
+    try {
+      final path = await provider.backupCurrentBook();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Backup saved: $path')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _exportTransactionsCsv(BuildContext context) async {
+    try {
+      final path = await provider.exportTransactionsCsv();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('CSV exported: $path')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('CSV export failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _importTransactionsCsv(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
+      if (result == null || result.files.single.path == null) return;
+      final sourcePath = result.files.single.path!;
+      if (!sourcePath.toLowerCase().endsWith('.csv')) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a .csv file')),
+          );
+        }
+        return;
+      }
+      final count = await provider.importTransactionsCsv(sourcePath);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Imported $count transactions')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('CSV import failed: $e')));
       }
     }
   }

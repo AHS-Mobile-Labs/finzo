@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
+import '../models/transaction_split_model.dart';
 import '../models/account_model.dart';
 import '../models/category_model.dart';
 import '../models/budget_model.dart';
@@ -84,11 +85,12 @@ class DatabaseService {
     }
   }
 
-  /// Returns Finzo's database directory.
+  /// Returns Finzo's app-owned database directory.
   ///
-  /// Android first tries the shared device Documents folder so the database is
-  /// outside Android/data. iOS uses the app Documents folder, which is exposed
-  /// in Files through Info.plist.
+  /// SQLite databases must live in storage the app can open directly. Public
+  /// Android folders such as /storage/emulated/0/Documents are handled only as
+  /// migration/import sources because scoped storage can reject direct SQLite
+  /// access there.
   static Future<String> get finzoDir async {
     final preferredDir = await _preferredDocumentsDirectory();
     if (preferredDir != null && await _ensureWritable(preferredDir)) {
@@ -109,28 +111,6 @@ class DatabaseService {
   }
 
   static Future<Directory?> _preferredDocumentsDirectory() async {
-    if (Platform.isAndroid) {
-      try {
-        final root = await _storageChannel.invokeMethod<String>(
-          'getDocumentsDirectory',
-        );
-        if (root != null && root.trim().isNotEmpty) {
-          return Directory(p.join(root, 'Finzo'));
-        }
-      } on MissingPluginException catch (e) {
-        _log('[DB] Android documents channel missing: $e');
-      } on PlatformException catch (e) {
-        _log('[DB] Android documents directory unavailable: ${e.message}');
-      } catch (e) {
-        _log('[DB] Error resolving Android documents directory: $e');
-      }
-    }
-
-    if (Platform.isIOS) {
-      final docs = await getApplicationDocumentsDirectory();
-      return Directory(p.join(docs.path, 'Finzo'));
-    }
-
     try {
       final docs = await getApplicationDocumentsDirectory();
       return Directory(p.join(docs.path, 'Finzo'));
@@ -141,8 +121,134 @@ class DatabaseService {
   }
 
   static Future<Directory> _fallbackDocumentsDirectory() async {
-    final docs = await getApplicationDocumentsDirectory();
-    return Directory(p.join(docs.path, 'Finzo'));
+    final dbRoot = await getDatabasesPath();
+    return Directory(p.join(dbRoot, 'Finzo'));
+  }
+
+  static Future<Directory?> _androidPublicDocumentsDirectory() async {
+    if (!Platform.isAndroid) return null;
+
+    try {
+      final root = await _storageChannel.invokeMethod<String>(
+        'getDocumentsDirectory',
+      );
+      if (root != null && root.trim().isNotEmpty) {
+        return Directory(p.join(root, 'Finzo'));
+      }
+    } on MissingPluginException catch (e) {
+      _log('[DB] Android documents channel missing: $e');
+    } on PlatformException catch (e) {
+      _log('[DB] Android public documents unavailable: ${e.message}');
+    } catch (e) {
+      _log('[DB] Error resolving Android public documents directory: $e');
+    }
+
+    return null;
+  }
+
+  static Future<String> publicFinzoDisplayPath([
+    String subdirectory = '',
+  ]) async {
+    final safeSubdirectory = _safeRelativeDirectory(subdirectory);
+
+    if (Platform.isAndroid) {
+      final parts = ['Documents', 'Finzo'];
+      if (safeSubdirectory.isNotEmpty) {
+        parts.addAll(safeSubdirectory.split('/'));
+      }
+      return parts.join('/');
+    }
+
+    final dir = await _userVisibleFinzoDirectory(safeSubdirectory);
+    return dir.path;
+  }
+
+  static Future<String> saveUserVisibleFile({
+    required String fileName,
+    required String mimeType,
+    required List<int> bytes,
+    String subdirectory = '',
+  }) async {
+    final safeFileName = _safeFileName(fileName);
+    final safeSubdirectory = _safeRelativeDirectory(subdirectory);
+
+    if (Platform.isAndroid) {
+      try {
+        final savedPath = await _storageChannel
+            .invokeMethod<String>('savePublicFile', {
+              'fileName': safeFileName,
+              'mimeType': mimeType,
+              'subdirectory': safeSubdirectory,
+              'bytes': Uint8List.fromList(bytes),
+            });
+        if (savedPath != null && savedPath.trim().isNotEmpty) {
+          return savedPath;
+        }
+      } on MissingPluginException catch (e) {
+        _log('[DB] Android public save channel missing: $e');
+      } on PlatformException catch (e) {
+        _log('[DB] Android public save failed: ${e.message}');
+      } catch (e) {
+        _log('[DB] Error saving public file through Android channel: $e');
+      }
+    }
+
+    final exportDir = await _userVisibleFinzoDirectory(safeSubdirectory);
+    if (!await exportDir.exists()) {
+      await exportDir.create(recursive: true);
+    }
+
+    final file = File(p.join(exportDir.path, safeFileName));
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  static Future<Directory> _userVisibleFinzoDirectory(
+    String safeSubdirectory,
+  ) async {
+    Directory? baseDir;
+
+    if (Platform.isAndroid) {
+      baseDir = await _androidPublicDocumentsDirectory();
+    }
+
+    baseDir ??= await _downloadsFinzoDirectory();
+    baseDir ??= await _preferredDocumentsDirectory();
+    baseDir ??= await _fallbackDocumentsDirectory();
+
+    return _appendRelativeDirectory(baseDir, safeSubdirectory);
+  }
+
+  static Future<Directory?> _downloadsFinzoDirectory() async {
+    try {
+      final downloads = await getDownloadsDirectory();
+      if (downloads == null) return null;
+      return Directory(p.join(downloads.path, 'Finzo'));
+    } catch (e) {
+      _log('[DB] Downloads directory unavailable: $e');
+      return null;
+    }
+  }
+
+  static Directory _appendRelativeDirectory(
+    Directory baseDir,
+    String safeSubdirectory,
+  ) {
+    if (safeSubdirectory.isEmpty) return baseDir;
+    return Directory(p.joinAll([baseDir.path, ...safeSubdirectory.split('/')]));
+  }
+
+  static String _safeFileName(String value) {
+    final fileName = p.basename(value).replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    return fileName.trim().isEmpty ? 'finzo_export' : fileName.trim();
+  }
+
+  static String _safeRelativeDirectory(String value) {
+    return value
+        .split(RegExp(r'[\\/]+'))
+        .map((part) => part.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim())
+        .where((part) => part.isNotEmpty && part != '.' && part != '..')
+        .join('/');
   }
 
   static Future<bool> _ensureWritable(Directory dir) async {
@@ -180,6 +286,12 @@ class DatabaseService {
     }
 
     if (Platform.isAndroid) {
+      final publicDocs = await _androidPublicDocumentsDirectory();
+      if (publicDocs != null) {
+        sources.add(Directory(p.join(p.dirname(publicDocs.path), 'finzo')));
+        sources.add(publicDocs);
+      }
+
       try {
         final cache = await getApplicationCacheDirectory();
         sources.add(Directory(p.join(cache.parent.path, 'files', 'finzo')));
@@ -204,20 +316,24 @@ class DatabaseService {
     final seen = <String>{targetPath};
 
     for (final sourceDir in sources) {
-      final sourcePath = p.normalize(sourceDir.path);
-      if (!seen.add(sourcePath)) continue;
-      if (!await sourceDir.exists()) continue;
+      try {
+        final sourcePath = p.normalize(sourceDir.path);
+        if (!seen.add(sourcePath)) continue;
+        if (!await sourceDir.exists()) continue;
 
-      await for (final entity in sourceDir.list()) {
-        if (entity is File) {
-          final name = p.basename(entity.path);
-          if (!name.endsWith('.books.db') && name != '.onboarded') continue;
+        await for (final entity in sourceDir.list()) {
+          if (entity is File) {
+            final name = p.basename(entity.path);
+            if (!name.endsWith('.books.db') && name != '.onboarded') continue;
 
-          final dest = File(p.join(targetDir.path, name));
-          if (!await dest.exists()) {
-            await entity.copy(dest.path);
+            final dest = File(p.join(targetDir.path, name));
+            if (!await dest.exists()) {
+              await entity.copy(dest.path);
+            }
           }
         }
+      } catch (e) {
+        _log('[DB] Could not migrate from ${sourceDir.path}: $e');
       }
     }
   }
@@ -277,7 +393,7 @@ class DatabaseService {
     final path = await pathForBook(bookName);
     _database = await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createTables,
       onUpgrade: _onUpgrade,
     );
@@ -297,8 +413,74 @@ class DatabaseService {
         .basenameWithoutExtension(sourcePath)
         .replaceAll('.books', '');
     final destPath = await pathForBook(name);
+    if (p.normalize(sourcePath) == p.normalize(destPath)) return name;
     await file.copy(destPath);
     return name;
+  }
+
+  Future<String> backupCurrentBook() async {
+    final sourcePath = await currentDbPath;
+    if (sourcePath == null) throw Exception('No active finance book');
+
+    try {
+      final db = await database;
+      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch (e) {
+      _log('[DB] Could not checkpoint before backup: $e');
+    }
+
+    final safeBook = (_currentBookName ?? 'finzo').replaceAll(
+      RegExp(r'[^\w\-]'),
+      '_',
+    );
+    final stamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .replaceAll('.', '');
+    return saveUserVisibleFile(
+      fileName: '${safeBook}_$stamp.books.db',
+      mimeType: 'application/octet-stream',
+      subdirectory: 'backups',
+      bytes: await File(sourcePath).readAsBytes(),
+    );
+  }
+
+  static Future<String> saveReceiptImage(String sourcePath) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) throw Exception('Receipt file not found');
+
+    final receiptsDir = Directory(p.join(await finzoDir, 'receipts'));
+    if (!await receiptsDir.exists()) {
+      await receiptsDir.create(recursive: true);
+    }
+
+    final extension = p.extension(sourcePath).isEmpty
+        ? '.jpg'
+        : p.extension(sourcePath);
+    final destPath = p.join(
+      receiptsDir.path,
+      'receipt_${DateTime.now().microsecondsSinceEpoch}$extension',
+    );
+    await source.copy(destPath);
+    return destPath;
+  }
+
+  static Future<String> saveReceiptImageBytes(
+    List<int> bytes, {
+    String extension = '.jpg',
+  }) async {
+    final receiptsDir = Directory(p.join(await finzoDir, 'receipts'));
+    if (!await receiptsDir.exists()) {
+      await receiptsDir.create(recursive: true);
+    }
+
+    final safeExtension = extension.startsWith('.') ? extension : '.$extension';
+    final destPath = p.join(
+      receiptsDir.path,
+      'receipt_${DateTime.now().microsecondsSinceEpoch}$safeExtension',
+    );
+    await File(destPath).writeAsBytes(bytes, flush: true);
+    return destPath;
   }
 
   /// Delete a book database by name
@@ -333,7 +515,7 @@ class DatabaseService {
 
       final db = await openDatabase(
         path,
-        version: 5,
+        version: 6,
         onCreate: _createTables,
         onUpgrade: _onUpgrade,
       );
@@ -368,7 +550,9 @@ class DatabaseService {
           icon TEXT NOT NULL,
           color INTEGER NOT NULL,
           type TEXT NOT NULL,
-          is_default INTEGER NOT NULL DEFAULT 0
+          is_default INTEGER NOT NULL DEFAULT 0,
+          parent_id TEXT,
+          FOREIGN KEY (parent_id) REFERENCES categories(id)
         )
       ''');
 
@@ -383,6 +567,10 @@ class DatabaseService {
           related_account_id TEXT,
           date TEXT NOT NULL,
           note TEXT,
+          payment_method TEXT,
+          tags TEXT,
+          receipt_path TEXT,
+          tracking_status TEXT NOT NULL DEFAULT 'normal',
           created_at TEXT NOT NULL,
           FOREIGN KEY (category_id) REFERENCES categories(id),
           FOREIGN KEY (account_id) REFERENCES accounts(id),
@@ -412,6 +600,7 @@ class DatabaseService {
 
       await _createV2Tables(db);
       await _createV3Tables(db);
+      await _createV6Tables(db);
       await _insertDefaultData(db);
 
       _log('[DB] Tables created successfully');
@@ -436,6 +625,9 @@ class DatabaseService {
       }
       if (oldVersion < 5) {
         await _migrateIconKeys(db);
+      }
+      if (oldVersion < 6) {
+        await _createV6Tables(db);
       }
 
       _log('[DB] Database upgrade successful');
@@ -552,6 +744,65 @@ class DatabaseService {
       _log('[DB] V4 ledger fields created successfully');
     } catch (e) {
       _log('[DB] Error creating V4 ledger fields: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _createV6Tables(DatabaseExecutor db) async {
+    try {
+      _log('[DB] Creating V6 expense detail fields...');
+
+      final transactionColumns = await db.rawQuery(
+        'PRAGMA table_info(transactions)',
+      );
+      Future<void> addTransactionColumn(String name, String definition) async {
+        final exists = transactionColumns.any(
+          (column) => column['name'] == name,
+        );
+        if (!exists) {
+          await db.execute('ALTER TABLE transactions ADD COLUMN $definition');
+        }
+      }
+
+      await addTransactionColumn('payment_method', 'payment_method TEXT');
+      await addTransactionColumn('tags', 'tags TEXT');
+      await addTransactionColumn('receipt_path', 'receipt_path TEXT');
+      await addTransactionColumn(
+        'tracking_status',
+        "tracking_status TEXT NOT NULL DEFAULT 'normal'",
+      );
+
+      final categoryColumns = await db.rawQuery(
+        'PRAGMA table_info(categories)',
+      );
+      final hasParent = categoryColumns.any(
+        (column) => column['name'] == 'parent_id',
+      );
+      if (!hasParent) {
+        await db.execute('ALTER TABLE categories ADD COLUMN parent_id TEXT');
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS transaction_splits (
+          id TEXT PRIMARY KEY,
+          transaction_id TEXT NOT NULL,
+          category_id TEXT NOT NULL,
+          amount REAL NOT NULL,
+          FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+          FOREIGN KEY (category_id) REFERENCES categories(id)
+        )
+      ''');
+
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_transaction_splits_tx ON transaction_splits(transaction_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_transaction_splits_category ON transaction_splits(category_id)',
+      );
+
+      _log('[DB] V6 expense detail fields created successfully');
+    } catch (e) {
+      _log('[DB] Error creating V6 expense detail fields: $e');
       rethrow;
     }
   }
@@ -754,7 +1005,7 @@ class DatabaseService {
         'id': 'acc_cash',
         'name': 'Cash',
         'balance': 0.0,
-        'color': 0xFF6C63FF,
+        'color': 0xFF654CFF,
         'icon': 'cash',
         'created_at': now,
       });
@@ -783,7 +1034,7 @@ class DatabaseService {
       'id': 'cat_transfer',
       'name': 'Transfer',
       'icon': 'transfer',
-      'color': 0xFF6C63FF,
+      'color': 0xFF654CFF,
       'type': 'both',
       'is_default': 1,
     };
@@ -827,6 +1078,47 @@ class DatabaseService {
     return deltas.map((accountId, delta) => MapEntry(accountId, -delta));
   }
 
+  Future<List<TransactionSplitModel>> _getSplitsForTransactions(
+    Database db,
+    List<String> transactionIds,
+  ) async {
+    if (transactionIds.isEmpty) return const [];
+    final placeholders = List.filled(transactionIds.length, '?').join(',');
+    final maps = await db.query(
+      'transaction_splits',
+      where: 'transaction_id IN ($placeholders)',
+      whereArgs: transactionIds,
+      orderBy: 'rowid ASC',
+    );
+    return maps.map((m) => TransactionSplitModel.fromMap(m)).toList();
+  }
+
+  Future<void> _insertSplits(Transaction txn, TransactionModel tx) async {
+    for (final split in tx.splits) {
+      await txn.insert(
+        'transaction_splits',
+        split.copyWith(transactionId: tx.id).toMap(),
+      );
+    }
+  }
+
+  Set<String> _budgetCategoriesFor(TransactionModel tx) {
+    if (tx.type != 'expense') return const <String>{};
+    if (tx.splits.isEmpty) return {tx.categoryId};
+    return tx.splits.map((split) => split.categoryId).toSet();
+  }
+
+  Future<void> _refreshBudgetCategoriesInTxn(
+    Transaction txn,
+    Set<String> categoryIds,
+    int month,
+    int year,
+  ) async {
+    for (final categoryId in categoryIds) {
+      await _updateBudgetSpentInTxn(txn, categoryId, month, year);
+    }
+  }
+
   Future<List<TransactionModel>> getTransactions({
     DateTime? startDate,
     DateTime? endDate,
@@ -866,18 +1158,31 @@ class DatabaseService {
       orderBy: 'date DESC, created_at DESC',
     );
 
-    return maps.map((m) => TransactionModel.fromMap(m)).toList();
+    final transactions = maps.map((m) => TransactionModel.fromMap(m)).toList();
+    final splits = await _getSplitsForTransactions(
+      db,
+      transactions.map((tx) => tx.id).toList(),
+    );
+    final splitsByTransaction = <String, List<TransactionSplitModel>>{};
+    for (final split in splits) {
+      splitsByTransaction.putIfAbsent(split.transactionId, () => []).add(split);
+    }
+
+    return transactions.map((tx) {
+      return tx.withSplits(splitsByTransaction[tx.id] ?? const []);
+    }).toList();
   }
 
   Future<String> insertTransaction(TransactionModel tx) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.insert('transactions', tx.toMap());
+      await _insertSplits(txn, tx);
       await _applyAccountDeltas(txn, _accountDeltasFor(tx));
 
-      await _updateBudgetSpentInTxn(
+      await _refreshBudgetCategoriesInTxn(
         txn,
-        tx.categoryId,
+        _budgetCategoriesFor(tx),
         tx.date.month,
         tx.date.year,
       );
@@ -900,19 +1205,26 @@ class DatabaseService {
         where: 'id = ?',
         whereArgs: [newTx.id],
       );
+      await txn.delete(
+        'transaction_splits',
+        where: 'transaction_id = ?',
+        whereArgs: [newTx.id],
+      );
+      await _insertSplits(txn, newTx);
 
-      await _updateBudgetSpentInTxn(
+      await _refreshBudgetCategoriesInTxn(
         txn,
-        oldTx.categoryId,
+        _budgetCategoriesFor(oldTx),
         oldTx.date.month,
         oldTx.date.year,
       );
-      if (oldTx.categoryId != newTx.categoryId ||
-          oldTx.date.month != newTx.date.month ||
-          oldTx.date.year != newTx.date.year) {
-        await _updateBudgetSpentInTxn(
+      if (oldTx.date.month != newTx.date.month ||
+          oldTx.date.year != newTx.date.year ||
+          _budgetCategoriesFor(oldTx).join(',') !=
+              _budgetCategoriesFor(newTx).join(',')) {
+        await _refreshBudgetCategoriesInTxn(
           txn,
-          newTx.categoryId,
+          _budgetCategoriesFor(newTx),
           newTx.date.month,
           newTx.date.year,
         );
@@ -925,10 +1237,15 @@ class DatabaseService {
     await db.transaction((txn) async {
       await _applyAccountDeltas(txn, _reverseDeltas(_accountDeltasFor(tx)));
 
+      await txn.delete(
+        'transaction_splits',
+        where: 'transaction_id = ?',
+        whereArgs: [tx.id],
+      );
       await txn.delete('transactions', where: 'id = ?', whereArgs: [tx.id]);
-      await _updateBudgetSpentInTxn(
+      await _refreshBudgetCategoriesInTxn(
         txn,
-        tx.categoryId,
+        _budgetCategoriesFor(tx),
         tx.date.month,
         tx.date.year,
       );
@@ -965,14 +1282,25 @@ class DatabaseService {
 
     return db.rawQuery(
       '''
-      SELECT c.id, c.name, c.icon, c.color, COALESCE(SUM(t.amount), 0) as total
-      FROM transactions t
-      JOIN categories c ON t.category_id = c.id
-      WHERE t.type = ? AND t.date >= ? AND t.date < ?
+      SELECT c.id, c.name, c.icon, c.color, COALESCE(SUM(x.amount), 0) as total
+      FROM (
+        SELECT t.category_id AS category_id, t.amount AS amount
+        FROM transactions t
+        WHERE t.type = ? AND t.date >= ? AND t.date < ?
+          AND NOT EXISTS (
+            SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id
+          )
+        UNION ALL
+        SELECT s.category_id AS category_id, s.amount AS amount
+        FROM transaction_splits s
+        JOIN transactions t ON t.id = s.transaction_id
+        WHERE t.type = ? AND t.date >= ? AND t.date < ?
+      ) x
+      JOIN categories c ON x.category_id = c.id
       GROUP BY c.id
       ORDER BY total DESC
     ''',
-      ['expense', start, end],
+      ['expense', start, end, 'expense', start, end],
     );
   }
 
@@ -1119,8 +1447,23 @@ class DatabaseService {
     final end = DateTime(year, month + 1, 1).toIso8601String();
 
     final result = await db.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE category_id = ? AND type = ? AND date >= ? AND date < ?',
-      [categoryId, 'expense', start, end],
+      '''
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM (
+        SELECT t.amount AS amount
+        FROM transactions t
+        WHERE t.category_id = ? AND t.type = ? AND t.date >= ? AND t.date < ?
+          AND NOT EXISTS (
+            SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id
+          )
+        UNION ALL
+        SELECT s.amount AS amount
+        FROM transaction_splits s
+        JOIN transactions t ON t.id = s.transaction_id
+        WHERE s.category_id = ? AND t.type = ? AND t.date >= ? AND t.date < ?
+      )
+      ''',
+      [categoryId, 'expense', start, end, categoryId, 'expense', start, end],
     );
 
     final total = (result.first['total'] as num).toDouble();
@@ -1140,8 +1483,23 @@ class DatabaseService {
     final end = DateTime(year, month + 1, 1).toIso8601String();
 
     final result = await txn.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE category_id = ? AND type = ? AND date >= ? AND date < ?',
-      [categoryId, 'expense', start, end],
+      '''
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM (
+        SELECT t.amount AS amount
+        FROM transactions t
+        WHERE t.category_id = ? AND t.type = ? AND t.date >= ? AND t.date < ?
+          AND NOT EXISTS (
+            SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id
+          )
+        UNION ALL
+        SELECT s.amount AS amount
+        FROM transaction_splits s
+        JOIN transactions t ON t.id = s.transaction_id
+        WHERE s.category_id = ? AND t.type = ? AND t.date >= ? AND t.date < ?
+      )
+      ''',
+      [categoryId, 'expense', start, end, categoryId, 'expense', start, end],
     );
 
     final total = (result.first['total'] as num).toDouble();
@@ -1225,6 +1583,18 @@ class DatabaseService {
       'key': key,
       'value': value,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<Map<String, String>> getSettingsWithPrefix(String prefix) async {
+    final db = await database;
+    final maps = await db.query(
+      'settings',
+      where: 'key LIKE ?',
+      whereArgs: ['$prefix%'],
+    );
+    return {
+      for (final map in maps) map['key'] as String: map['value'] as String,
+    };
   }
 
   // ─── AUTO EMI ────────────────────────────────────────────────────────────

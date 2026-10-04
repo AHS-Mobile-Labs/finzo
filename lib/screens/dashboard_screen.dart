@@ -6,6 +6,8 @@ import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
+import '../widgets/animated_amount.dart';
+import '../widgets/pressable_card.dart';
 import '../widgets/transaction_tile.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -56,6 +58,12 @@ class DashboardScreen extends StatelessWidget {
               _NetWorthHero(provider: provider),
               const SizedBox(height: 14),
               _InsightStrip(provider: provider),
+              if (provider.smartFinancialInsights.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _SmartInsightBanner(
+                  insight: provider.smartFinancialInsights.first,
+                ),
+              ],
               const SizedBox(height: 14),
               _CashflowChart(provider: provider),
               const SizedBox(height: 14),
@@ -106,19 +114,16 @@ class _NetWorthHero extends StatelessWidget {
     final momentum = provider.cashflowMomentum;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2541B2), Color(0xFF08A88A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
+        gradient: AppTheme.heroGradient,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withAlpha(25)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF08A88A).withAlpha(50),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppTheme.primaryColor.withAlpha(65),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -127,10 +132,28 @@ class _NetWorthHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Net worth',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      height: 3.5,
+                      width: 32,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        gradient: AppTheme.brandGradient,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Net Worth',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _Pill(
@@ -142,16 +165,17 @@ class _NetWorthHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(
-              Formatters.currency(provider.netWorth),
+            child: AnimatedAmount(
+              value: provider.netWorth,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 34,
-                fontWeight: FontWeight.w800,
+                fontSize: 35,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
               ),
             ),
           ),
@@ -162,6 +186,7 @@ class _NetWorthHero extends StatelessWidget {
                 child: _HeroMetric(
                   label: 'Balance',
                   value: Formatters.compact(provider.totalBalance),
+                  amount: provider.totalBalance,
                   icon: Icons.account_balance_wallet_rounded,
                 ),
               ),
@@ -169,6 +194,7 @@ class _NetWorthHero extends StatelessWidget {
                 child: _HeroMetric(
                   label: 'Invested',
                   value: Formatters.compact(provider.totalInvestmentValue),
+                  amount: provider.totalInvestmentValue,
                   icon: Icons.show_chart_rounded,
                 ),
               ),
@@ -176,6 +202,7 @@ class _NetWorthHero extends StatelessWidget {
                 child: _HeroMetric(
                   label: savings >= 0 ? 'Saved' : 'Gap',
                   value: Formatters.compact(savings.abs()),
+                  amount: savings.abs(),
                   icon: savings >= 0
                       ? Icons.savings_rounded
                       : Icons.warning_amber_rounded,
@@ -195,6 +222,13 @@ class _InsightStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final healthScore = provider.calculatedHealthScore;
+    final healthColor = healthScore >= 75
+        ? AppTheme.incomeColor
+        : healthScore >= 50
+        ? const Color(0xFFFFB800)
+        : AppTheme.expenseColor;
+
     return Row(
       children: [
         Expanded(
@@ -204,31 +238,124 @@ class _InsightStrip extends StatelessWidget {
             icon: Icons.speed_rounded,
             color: provider.savingsRate >= 20
                 ? AppTheme.incomeColor
-                : const Color(0xFFFFB020),
+                : const Color(0xFFFFB800),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _InsightCard(
-            title: 'Projected spend',
-            value: Formatters.compact(provider.projectedMonthlyExpense),
+            title: 'Health score',
+            value: '$healthScore/100',
+            icon: Icons.shield_rounded,
+            color: healthColor,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _InsightCard(
+            title: 'Daily pace',
+            value: provider.remainingDailyBudgetLimit > 0
+                ? '${Formatters.compact(provider.remainingDailyBudgetLimit)}/d'
+                : Formatters.compact(provider.averageDailyExpense),
             icon: Icons.timeline_rounded,
-            color: AppTheme.expenseColor,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _InsightCard(
-            title: 'Budget used',
-            value: '${(provider.budgetUsage * 100).toStringAsFixed(0)}%',
-            icon: Icons.donut_large_rounded,
-            color: provider.overBudgetCount > 0
-                ? AppTheme.expenseColor
-                : AppTheme.primaryColor,
+            color: AppTheme.infoColor,
           ),
         ),
       ],
     ).animate().fadeIn(delay: 80.ms, duration: 320.ms);
+  }
+}
+
+class _SmartInsightBanner extends StatelessWidget {
+  final FinancialInsight insight;
+  const _SmartInsightBanner({required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: insight.color.withAlpha(55)),
+        boxShadow: [
+          BoxShadow(
+            color: insight.color.withAlpha(20),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: insight.color.withAlpha(35),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Icon(
+                EmojiToIcon.getIcon(insight.icon),
+                color: insight.color,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        insight.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: insight.color.withAlpha(30),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        insight.badge,
+                        style: TextStyle(
+                          color: insight.color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  insight.description,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 100.ms, duration: 320.ms).slideY(begin: .04);
   }
 }
 
@@ -551,11 +678,13 @@ class _Panel extends StatelessWidget {
 class _HeroMetric extends StatelessWidget {
   final String label;
   final String value;
+  final double? amount;
   final IconData icon;
 
   const _HeroMetric({
     required this.label,
     required this.value,
+    this.amount,
     required this.icon,
   });
 
@@ -575,16 +704,27 @@ class _HeroMetric extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white60, fontSize: 10),
               ),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
+              if (amount != null)
+                AnimatedAmount(
+                  value: amount!,
+                  mode: AmountDisplayMode.compact,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                )
+              else
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -608,30 +748,32 @@ class _InsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
+    return PressableCard(
+      child: _Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white54, fontSize: 10),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white54, fontSize: 10),
+            ),
+          ],
+        ),
       ),
     );
   }

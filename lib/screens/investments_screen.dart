@@ -89,13 +89,7 @@ class _InvestmentSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isProfit
-              ? [AppTheme.incomeColor, const Color(0xFF5FE39A)]
-              : [AppTheme.expenseColor, const Color(0xFFFF8E8E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: isProfit ? AppTheme.incomeColor : AppTheme.expenseColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

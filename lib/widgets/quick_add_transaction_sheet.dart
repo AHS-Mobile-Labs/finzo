@@ -11,7 +11,9 @@ import '../utils/formatters.dart';
 import '../utils/emoji_to_icon.dart';
 
 class QuickAddTransactionSheet extends StatefulWidget {
-  const QuickAddTransactionSheet({super.key});
+  final Future<void> Function()? onScanReceipt;
+
+  const QuickAddTransactionSheet({super.key, this.onScanReceipt});
 
   @override
   State<QuickAddTransactionSheet> createState() =>
@@ -137,6 +139,16 @@ class _QuickAddTransactionSheetState extends State<QuickAddTransactionSheet> {
     }
   }
 
+  void _openReceiptScanner() {
+    final scanner = widget.onScanReceipt;
+    if (scanner == null) return;
+
+    Navigator.pop(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scanner();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FinanceProvider>();
@@ -225,6 +237,11 @@ class _QuickAddTransactionSheetState extends State<QuickAddTransactionSheet> {
                 ],
               ),
               const SizedBox(height: 20),
+
+              if (widget.onScanReceipt != null) ...[
+                _ReceiptScanShortcut(onTap: _openReceiptScanner),
+                const SizedBox(height: 18),
+              ],
 
               // Amount input (large)
               TextField(
@@ -700,6 +717,77 @@ class _QuickAddTransactionSheetState extends State<QuickAddTransactionSheet> {
       ),
     );
     if (picked != null) setState(() => _selectedDate = picked);
+  }
+}
+
+class _ReceiptScanShortcut extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ReceiptScanShortcut({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withAlpha(26),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.primaryColor.withAlpha(70)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withAlpha(44),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.document_scanner_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan receipt',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Create an expense from camera or gallery',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white38,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

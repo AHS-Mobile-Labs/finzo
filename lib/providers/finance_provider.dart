@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
+import '../models/transaction_split_model.dart';
 import '../models/account_model.dart';
 import '../models/category_model.dart';
 import '../models/budget_model.dart';
@@ -13,6 +18,22 @@ import '../utils/formatters.dart';
 
 void _logFinance(String message) {
   if (kDebugMode) debugPrint(message);
+}
+
+class FinancialInsight {
+  final String title;
+  final String description;
+  final String icon;
+  final Color color;
+  final String badge;
+
+  const FinancialInsight({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.badge,
+  });
 }
 
 class FinanceProvider extends ChangeNotifier {
@@ -29,6 +50,7 @@ class FinanceProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _categorySpending = [];
   List<String> _recentExpenseIds = [];
   List<String> _recentIncomeIds = [];
+  Map<String, String> _receiptCategoryMemory = {};
 
   bool _isLoading = false;
   DateTime _selectedMonth = DateTime.now();
@@ -131,8 +153,293 @@ class FinanceProvider extends ChangeNotifier {
         (current['income'] as double) - (current['expense'] as double);
     final previousSavings =
         (previous['income'] as double) - (previous['expense'] as double);
-    if (previousSavings == 0) return currentSavings == 0 ? 0 : 100;
-    return ((currentSavings - previousSavings) / previousSavings.abs()) * 100;
+    if (previousSavings == 0) {
+      if (currentSavings > 0) return 100;
+      if (currentSavings < 0) return -100;
+      return 0;
+    }
+    final momentum =
+        ((currentSavings - previousSavings) / previousSavings.abs()) * 100;
+    return momentum.clamp(-999.0, 999.0);
+  }
+
+  // ─── 50/30/20 & ADVANCED FINANCIAL ANALYSIS ─────────────────────────────
+
+  /// Needs (Essentials): Groceries, Bills & Utilities, Health, Transport/Fuel, Education, Rent
+  double get needsSpending {
+    final currentExpenses = currentMonthTransactions.where(
+      (t) => t.type == 'expense',
+    );
+    double sum = 0.0;
+    for (final tx in currentExpenses) {
+      final cat = getCategoryById(tx.categoryId);
+      if (_isNeedCategory(cat)) {
+        sum += tx.amount;
+      }
+    }
+    return sum;
+  }
+
+  /// Wants (Discretionary): Dining out, Shopping, Entertainment, Travel, Beauty, Leisure
+  double get wantsSpending {
+    final currentExpenses = currentMonthTransactions.where(
+      (t) => t.type == 'expense',
+    );
+    double sum = 0.0;
+    for (final tx in currentExpenses) {
+      final cat = getCategoryById(tx.categoryId);
+      if (!_isNeedCategory(cat)) {
+        sum += tx.amount;
+      }
+    }
+    return sum;
+  }
+
+  bool _isNeedCategory(CategoryModel? category) {
+    if (category == null) return false;
+    final name = category.name.toLowerCase();
+    final icon = category.icon.toLowerCase();
+    return name.contains('grocer') ||
+        name.contains('bill') ||
+        name.contains('utilit') ||
+        name.contains('health') ||
+        name.contains('medic') ||
+        name.contains('transport') ||
+        name.contains('fuel') ||
+        name.contains('petrol') ||
+        name.contains('edu') ||
+        name.contains('rent') ||
+        name.contains('home') ||
+        icon == 'utilities' ||
+        icon == 'medical' ||
+        icon == 'fuel' ||
+        icon == 'books' ||
+        icon == 'home' ||
+        icon == 'car';
+  }
+
+  /// Needs share of total monthly expense (percentage)
+  double get needsExpensePercentage =>
+      monthlyExpense > 0 ? (needsSpending / monthlyExpense) * 100 : 0.0;
+
+  /// Wants share of total monthly expense (percentage)
+  double get wantsExpensePercentage =>
+      monthlyExpense > 0 ? (wantsSpending / monthlyExpense) * 100 : 0.0;
+
+  /// Average monthly expense across historical data (or current if none)
+  double get averageHistoricalMonthlyExpense {
+    if (_last6Months.isEmpty) return monthlyExpense;
+    final expenses = _last6Months
+        .map((m) => m['expense'] as double)
+        .where((e) => e > 0)
+        .toList();
+    if (expenses.isEmpty) return monthlyExpense;
+    return expenses.fold<double>(0.0, (s, e) => s + e) / expenses.length;
+  }
+
+  /// Emergency Fund Runway (Months of survival with liquid balance)
+  double get emergencyFundMonths {
+    final burn = averageHistoricalMonthlyExpense > 0
+        ? averageHistoricalMonthlyExpense
+        : monthlyExpense;
+    if (burn <= 0) return totalBalance > 0 ? 12.0 : 0.0;
+    return (totalBalance / burn).clamp(0.0, 99.9);
+  }
+
+  /// Runway Status Label
+  String get emergencyRunwayStatus {
+    final months = emergencyFundMonths;
+    if (months >= 6.0) return 'Exceptional (6+ months safety buffer)';
+    if (months >= 3.0) return 'Healthy (3-6 months buffer)';
+    if (months >= 1.0) return 'Moderate (1-3 months buffer)';
+    return 'Vulnerable (< 1 month runway)';
+  }
+
+  /// Remaining days in selected month
+  int get remainingDaysInMonth {
+    final now = DateTime.now();
+    if (_selectedMonth.year != now.year || _selectedMonth.month != now.month) {
+      return 0;
+    }
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    return (daysInMonth - now.day + 1).clamp(1, 31);
+  }
+
+  /// Remaining safe daily spending limit based on monthly budget or income
+  double get remainingDailyBudgetLimit {
+    final remainingDays = remainingDaysInMonth;
+    if (remainingDays <= 0) return 0.0;
+    if (totalBudget > 0) {
+      final remaining = (totalBudget - totalBudgetSpent).clamp(
+        0.0,
+        double.infinity,
+      );
+      return remaining / remainingDays;
+    }
+    if (monthlyIncome > 0) {
+      final remaining = (monthlyIncome - monthlyExpense).clamp(
+        0.0,
+        double.infinity,
+      );
+      return remaining / remainingDays;
+    }
+    return 0.0;
+  }
+
+  /// Multi-pillar Financial Health Score (0-100)
+  int get calculatedHealthScore {
+    // Pillar 1: Savings Rate (max 30 pts)
+    final savingsScore = (savingsRate.clamp(0.0, 30.0) / 30.0) * 30.0;
+
+    // Pillar 2: Budget Discipline (max 30 pts)
+    double budgetScore = 20.0;
+    if (totalBudget > 0) {
+      budgetScore = (1.0 - budgetUsage).clamp(0.0, 1.0) * 30.0;
+      if (overBudgetCount > 0) {
+        budgetScore = (budgetScore - (overBudgetCount * 5.0)).clamp(0.0, 30.0);
+      }
+    }
+
+    // Pillar 3: Emergency Runway & Debt Safety (max 25 pts)
+    double safetyScore = 5.0;
+    final runway = emergencyFundMonths;
+    if (runway >= 6.0) {
+      safetyScore = 15.0;
+    } else if (runway >= 3.0) {
+      safetyScore = 12.0;
+    } else if (runway >= 1.0) {
+      safetyScore = 8.0;
+    } else {
+      safetyScore = 3.0;
+    }
+
+    if (totalLoanOutstanding <= 0) {
+      safetyScore += 10.0;
+    } else if (netWorth > totalLoanOutstanding * 1.5) {
+      safetyScore += 7.0;
+    } else if (netWorth > 0) {
+      safetyScore += 4.0;
+    }
+
+    // Pillar 4: Needs vs Wants Balance (max 15 pts)
+    double livingScore = 10.0;
+    if (monthlyExpense > 0) {
+      if (wantsExpensePercentage <= 35.0) {
+        livingScore = 15.0;
+      } else if (wantsExpensePercentage <= 50.0) {
+        livingScore = 10.0;
+      } else {
+        livingScore = 5.0;
+      }
+    }
+
+    return (savingsScore + budgetScore + safetyScore + livingScore)
+        .round()
+        .clamp(0, 100);
+  }
+
+  /// Dynamic Smart Financial Insights
+  List<FinancialInsight> get smartFinancialInsights {
+    final insights = <FinancialInsight>[];
+
+    // Insight 1: Savings Rate / Deficit
+    if (monthlyIncome > 0) {
+      if (savingsRate >= 25.0) {
+        insights.add(
+          FinancialInsight(
+            title: 'Strong Wealth Builder',
+            description:
+                'You\'re saving ${savingsRate.toStringAsFixed(0)}% of your income this month. You\'re ahead of the 20% savings rule!',
+            icon: 'trending_up',
+            color: const Color(0xFF00E676),
+            badge: 'Top Tier',
+          ),
+        );
+      } else if (savingsRate >= 10.0) {
+        insights.add(
+          FinancialInsight(
+            title: 'Positive Savings',
+            description:
+                'You\'ve saved ${Formatters.currency(monthlySavings)} (${savingsRate.toStringAsFixed(0)}%). Consider bumping it to 20% by curbing discretionary wants.',
+            icon: 'trending_up',
+            color: const Color(0xFF38BDF8),
+            badge: 'Good Pace',
+          ),
+        );
+      } else if (monthlySavings < 0) {
+        insights.add(
+          FinancialInsight(
+            title: 'Spending Exceeds Income',
+            description:
+                'Outflow exceeds income by ${Formatters.currency(monthlySavings.abs())} this month. Review non-essential categories to stop cash bleed.',
+            icon: 'warning',
+            color: const Color(0xFFFF5252),
+            badge: 'Action Needed',
+          ),
+        );
+      }
+    }
+
+    // Insight 2: Top Category Concentration
+    if (topSpendingCategory != null && monthlyExpense > 0) {
+      final topTotal = (topSpendingCategory!['total'] as num).toDouble();
+      final share = (topTotal / monthlyExpense) * 100;
+      final topName = topSpendingCategory!['name'] as String;
+      if (share >= 30.0) {
+        insights.add(
+          FinancialInsight(
+            title: '$topName Concentration',
+            description:
+                '$topName accounts for ${share.toStringAsFixed(0)}% of total monthly spending (${Formatters.currency(topTotal)}).',
+            icon: topSpendingCategory!['icon'] as String? ?? 'chart',
+            color: const Color(0xFFFFB800),
+            badge: 'High Share',
+          ),
+        );
+      }
+    }
+
+    // Insight 3: Emergency Runway
+    final runway = emergencyFundMonths;
+    if (runway >= 3.0) {
+      insights.add(
+        FinancialInsight(
+          title: 'Emergency Cushion',
+          description:
+              'Your cash reserves can sustain your lifestyle for ${runway.toStringAsFixed(1)} months without any new income.',
+          icon: 'bank',
+          color: const Color(0xFF635BFF),
+          badge: 'Protected',
+        ),
+      );
+    } else if (runway > 0 && runway < 2.0) {
+      insights.add(
+        FinancialInsight(
+          title: 'Build Emergency Buffer',
+          description:
+              'Liquid funds only cover ${runway.toStringAsFixed(1)} months of expenses. Recommended baseline is 3 to 6 months.',
+          icon: 'warning',
+          color: const Color(0xFFFFB800),
+          badge: 'Low Buffer',
+        ),
+      );
+    }
+
+    // Insight 4: Daily Budget Pace
+    if (remainingDaysInMonth > 0 && remainingDailyBudgetLimit > 0) {
+      insights.add(
+        FinancialInsight(
+          title: 'Remaining Daily Pace',
+          description:
+              'To finish the month on target, your recommended safe spending limit is ${Formatters.currency(remainingDailyBudgetLimit)} / day for the remaining $remainingDaysInMonth days.',
+          icon: 'target',
+          color: const Color(0xFF00E676),
+          badge: 'Daily Guide',
+        ),
+      );
+    }
+
+    return insights;
   }
 
   List<Map<String, dynamic>> get accountDistribution {
@@ -173,12 +480,189 @@ class FinanceProvider extends ChangeNotifier {
     }
   }
 
+  String categoryDisplayName(CategoryModel? category) {
+    if (category == null) return 'Unknown';
+    if (category.parentCategoryId == null) return category.name;
+    final parent = getCategoryById(category.parentCategoryId!);
+    return parent == null ? category.name : '${parent.name} / ${category.name}';
+  }
+
   AccountModel? getAccountById(String id) {
     try {
       return _accounts.firstWhere((a) => a.id == id);
     } catch (_) {
       return null;
     }
+  }
+
+  CategoryModel? guessReceiptCategory(String merchantName) {
+    final merchant = _normaliseMerchantKey(merchantName);
+    if (merchant.isEmpty) return _fallbackExpenseCategory();
+
+    final remembered = _rememberedReceiptCategory(merchant);
+    if (remembered != null) return remembered;
+
+    CategoryModel? byNames(List<String> names) {
+      for (final name in names) {
+        for (final category in _categories) {
+          final displayName = categoryDisplayName(category).toLowerCase();
+          if ((category.type == 'expense' || category.type == 'both') &&
+              (category.name.toLowerCase() == name.toLowerCase() ||
+                  displayName == name.toLowerCase())) {
+            return category;
+          }
+        }
+      }
+      return null;
+    }
+
+    bool hasAny(List<String> keywords) {
+      return keywords.any((keyword) => merchant.contains(keyword));
+    }
+
+    if (hasAny([
+      'reliance fresh',
+      'dmart',
+      'big bazaar',
+      'more',
+      'grocery',
+      'supermarket',
+      'fresh',
+      'mart',
+    ])) {
+      return byNames(['Groceries', 'Grocery', 'Food & Dining', 'Shopping']) ??
+          _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'zomato',
+      'swiggy',
+      'restaurant',
+      'cafe',
+      'coffee',
+      'pizza',
+      'domino',
+      'kfc',
+      'mcdonald',
+    ])) {
+      return byNames(['Food & Dining']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'uber',
+      'ola',
+      'rapido',
+      'metro',
+      'rail',
+      'bus',
+      'fuel',
+      'petrol',
+      'diesel',
+    ])) {
+      return byNames(['Transport']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'apollo',
+      'medplus',
+      'pharmacy',
+      'medical',
+      'hospital',
+      'clinic',
+    ])) {
+      return byNames(['Health']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny([
+      'electric',
+      'water',
+      'gas',
+      'broadband',
+      'internet',
+      'mobile',
+      'airtel',
+      'jio',
+      'vi ',
+    ])) {
+      return byNames(['Bills & Utilities']) ?? _fallbackExpenseCategory();
+    }
+    if (hasAny(['amazon', 'flipkart', 'myntra', 'store', 'mall', 'shop'])) {
+      return byNames(['Shopping']) ?? _fallbackExpenseCategory();
+    }
+
+    return _fallbackExpenseCategory();
+  }
+
+  Future<void> rememberReceiptCategory(
+    String merchantName,
+    String categoryId,
+  ) async {
+    final merchant = _normaliseMerchantKey(merchantName);
+    if (merchant.isEmpty || categoryId.isEmpty) return;
+    _receiptCategoryMemory[merchant] = categoryId;
+    await _db.setSetting('receipt_category_$merchant', categoryId);
+  }
+
+  List<TransactionModel> findPotentialDuplicateExpense({
+    required String merchantName,
+    required double amount,
+    required DateTime date,
+    String? excludeId,
+  }) {
+    final merchant = _normaliseMerchantKey(merchantName);
+    final day = DateTime(date.year, date.month, date.day);
+
+    final scored = <({TransactionModel tx, int score})>[];
+    for (final tx in _transactions) {
+      if (tx.id == excludeId || tx.type != 'expense') continue;
+      if ((tx.amount - amount).abs() > 0.01) continue;
+
+      final txDay = DateTime(tx.date.year, tx.date.month, tx.date.day);
+      final dayDelta = txDay.difference(day).inDays.abs();
+      if (dayDelta > 1) continue;
+
+      var score = dayDelta == 0 ? 3 : 1;
+      final title = _normaliseMerchantKey(tx.title);
+      if (merchant.isNotEmpty &&
+          (title == merchant ||
+              title.contains(merchant) ||
+              merchant.contains(title))) {
+        score += 4;
+      }
+      if (tx.receiptPath != null && tx.receiptPath!.isNotEmpty) {
+        score += 1;
+      }
+      scored.add((tx: tx, score: score));
+    }
+
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored.take(3).map((entry) => entry.tx).toList();
+  }
+
+  CategoryModel? _rememberedReceiptCategory(String normalisedMerchant) {
+    final categoryId = _receiptCategoryMemory[normalisedMerchant];
+    if (categoryId == null) return null;
+    final category = getCategoryById(categoryId);
+    if (category == null) return null;
+    if (category.type != 'expense' && category.type != 'both') return null;
+    return category;
+  }
+
+  CategoryModel? _fallbackExpenseCategory() {
+    for (final id in ['cat_other_exp', 'cat_food', 'cat_shop']) {
+      final category = getCategoryById(id);
+      if (category != null) return category;
+    }
+    for (final category in _categories) {
+      if (category.type == 'expense' || category.type == 'both') {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  String _normaliseMerchantKey(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   // ─── INIT ─────────────────────────────────────────────────────────────────
@@ -200,6 +684,12 @@ class FinanceProvider extends ChangeNotifier {
 
       await _loadRecentCategories().catchError((e) {
         _logFinance('[FinanceProvider] Error loading recent categories: $e');
+      });
+
+      await _loadReceiptCategoryMemory().catchError((e) {
+        _logFinance(
+          '[FinanceProvider] Error loading receipt category memory: $e',
+        );
       });
 
       // Load all data with timeout
@@ -256,6 +746,14 @@ class FinanceProvider extends ChangeNotifier {
       _recentExpenseIds = [];
       _recentIncomeIds = [];
     }
+  }
+
+  Future<void> _loadReceiptCategoryMemory() async {
+    final settings = await _db.getSettingsWithPrefix('receipt_category_');
+    _receiptCategoryMemory = {
+      for (final entry in settings.entries)
+        entry.key.replaceFirst('receipt_category_', ''): entry.value,
+    };
   }
 
   Future<void> setUserName(String name) async {
@@ -320,7 +818,12 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> addTransaction(TransactionModel tx) async {
     await _db.insertTransaction(tx);
     if (tx.type != 'transfer') {
-      await _trackCategoryUsage(tx.categoryId, tx.type);
+      final categoryIds = tx.splits.isEmpty
+          ? <String>[tx.categoryId]
+          : tx.splits.map((split) => split.categoryId).toSet().toList();
+      for (final categoryId in categoryIds) {
+        await _trackCategoryUsage(categoryId, tx.type);
+      }
     }
     await _loadAll();
     notifyListeners();
@@ -548,6 +1051,8 @@ class FinanceProvider extends ChangeNotifier {
     await _db.openBook(bookName);
     await _loadCurrency();
     await _loadUserName();
+    await _loadRecentCategories();
+    await _loadReceiptCategoryMemory();
     await _loadAll();
     await _db.processAutoEmis();
     await _loadAll();
@@ -562,6 +1067,8 @@ class FinanceProvider extends ChangeNotifier {
     await _db.createBook(bookName);
     await _loadCurrency();
     await _loadUserName();
+    await _loadRecentCategories();
+    await _loadReceiptCategoryMemory();
     await _loadAll();
     _isLoading = false;
     notifyListeners();
@@ -572,6 +1079,326 @@ class FinanceProvider extends ChangeNotifier {
     if (bookName == currentBookName) return false;
     await _db.deleteBook(bookName);
     return true;
+  }
+
+  Future<String> backupCurrentBook() => _db.backupCurrentBook();
+
+  Future<String> exportTransactionsCsv() async {
+    final stamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .replaceAll('.', '');
+    final fileName = '${currentBookName}_transactions_$stamp.csv';
+
+    const headers = [
+      'title',
+      'amount',
+      'type',
+      'category',
+      'account',
+      'related_account',
+      'date',
+      'note',
+      'payment_method',
+      'tags',
+      'tracking_status',
+      'receipt_path',
+      'splits',
+    ];
+
+    final rows = <List<String>>[headers];
+    for (final tx in _transactions) {
+      final category = getCategoryById(tx.categoryId);
+      final account = getAccountById(tx.accountId);
+      final related = tx.relatedAccountId == null
+          ? null
+          : getAccountById(tx.relatedAccountId!);
+      rows.add([
+        tx.title,
+        tx.amount.toStringAsFixed(2),
+        tx.type,
+        categoryDisplayName(category),
+        account?.name ?? '',
+        related?.name ?? '',
+        tx.date.toIso8601String(),
+        tx.note ?? '',
+        tx.paymentMethod ?? '',
+        tx.tags.join(';'),
+        tx.trackingStatus,
+        tx.receiptPath ?? '',
+        jsonEncode(
+          tx.splits.map((split) {
+            final splitCategory = getCategoryById(split.categoryId);
+            return {
+              'category': categoryDisplayName(splitCategory),
+              'amount': split.amount,
+            };
+          }).toList(),
+        ),
+      ]);
+    }
+
+    final csv = rows.map((row) => row.map(_csvEscape).join(',')).join('\n');
+    return DatabaseService.saveUserVisibleFile(
+      fileName: fileName,
+      mimeType: 'text/csv',
+      subdirectory: 'exports',
+      bytes: utf8.encode(csv),
+    );
+  }
+
+  Future<int> importTransactionsCsv(String sourcePath) async {
+    final file = File(sourcePath);
+    if (!await file.exists()) throw Exception('CSV file not found');
+
+    final rows = _parseCsv(await file.readAsString());
+    if (rows.isEmpty) return 0;
+
+    final headers = rows.first.map((header) => header.trim()).toList();
+    final indexes = <String, int>{};
+    for (var i = 0; i < headers.length; i++) {
+      indexes[headers[i].toLowerCase()] = i;
+    }
+
+    String value(List<String> row, String key) {
+      final index = indexes[key];
+      if (index == null || index >= row.length) return '';
+      return row[index].trim();
+    }
+
+    var imported = 0;
+    const uuid = Uuid();
+
+    for (final row in rows.skip(1)) {
+      if (row.every((cell) => cell.trim().isEmpty)) continue;
+
+      final amount = double.tryParse(value(row, 'amount'));
+      if (amount == null || amount <= 0) continue;
+
+      final type = _normaliseTransactionType(value(row, 'type'));
+      final account = await _accountForImport(value(row, 'account'), uuid);
+      AccountModel? related;
+      if (type == 'transfer') {
+        related = await _accountForImport(value(row, 'related_account'), uuid);
+        if (related.id == account.id) continue;
+      }
+
+      final category = type == 'transfer'
+          ? getCategoryById('cat_transfer')
+          : await _categoryForImport(value(row, 'category'), type, uuid);
+      if (category == null) continue;
+
+      final date = DateTime.tryParse(value(row, 'date')) ?? DateTime.now();
+      final splits = type == 'transfer'
+          ? <TransactionSplitModel>[]
+          : await _splitsForImport(value(row, 'splits'), type, uuid);
+
+      final tx = TransactionModel(
+        id: uuid.v4(),
+        title: value(row, 'title').isEmpty
+            ? 'Imported transaction'
+            : value(row, 'title'),
+        amount: amount,
+        type: type,
+        categoryId: splits.isNotEmpty ? splits.first.categoryId : category.id,
+        accountId: account.id,
+        relatedAccountId: related?.id,
+        date: date,
+        note: value(row, 'note').isEmpty ? null : value(row, 'note'),
+        paymentMethod: _normalisePaymentMethod(value(row, 'payment_method')),
+        tags: value(row, 'tags')
+            .split(';')
+            .map((tag) => tag.trim())
+            .where((tag) => tag.isNotEmpty)
+            .toList(),
+        receiptPath: value(row, 'receipt_path').isEmpty
+            ? null
+            : value(row, 'receipt_path'),
+        trackingStatus: _normaliseTrackingStatus(value(row, 'tracking_status')),
+        splits: splits,
+        createdAt: DateTime.now(),
+      );
+
+      await _db.insertTransaction(tx);
+      imported++;
+    }
+
+    await _loadAll();
+    notifyListeners();
+    return imported;
+  }
+
+  String _csvEscape(String value) {
+    final needsQuotes =
+        value.contains(',') || value.contains('"') || value.contains('\n');
+    final escaped = value.replaceAll('"', '""');
+    return needsQuotes ? '"$escaped"' : escaped;
+  }
+
+  List<List<String>> _parseCsv(String input) {
+    final rows = <List<String>>[];
+    var row = <String>[];
+    final cell = StringBuffer();
+    var inQuotes = false;
+
+    for (var i = 0; i < input.length; i++) {
+      final char = input[i];
+      if (inQuotes) {
+        if (char == '"') {
+          final nextIsQuote = i + 1 < input.length && input[i + 1] == '"';
+          if (nextIsQuote) {
+            cell.write('"');
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          cell.write(char);
+        }
+      } else if (char == '"') {
+        inQuotes = true;
+      } else if (char == ',') {
+        row.add(cell.toString());
+        cell.clear();
+      } else if (char == '\n') {
+        row.add(cell.toString());
+        rows.add(row);
+        row = <String>[];
+        cell.clear();
+      } else if (char != '\r') {
+        cell.write(char);
+      }
+    }
+
+    row.add(cell.toString());
+    if (row.any((cell) => cell.isNotEmpty)) {
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  String _normaliseTransactionType(String value) {
+    final lower = value.toLowerCase();
+    if (lower == 'income' || lower == 'transfer') return lower;
+    return 'expense';
+  }
+
+  String? _normalisePaymentMethod(String value) {
+    final lower = value.toLowerCase();
+    if (TransactionPaymentMethod.values.contains(lower)) return lower;
+    if (lower == 'upi') return TransactionPaymentMethod.upi;
+    if (lower.isEmpty) return null;
+    return TransactionPaymentMethod.cash;
+  }
+
+  String _normaliseTrackingStatus(String value) {
+    final lower = value.toLowerCase();
+    if (TransactionTrackingStatus.values.contains(lower)) return lower;
+    return TransactionTrackingStatus.normal;
+  }
+
+  Future<AccountModel> _accountForImport(String name, Uuid uuid) async {
+    final target = name.trim();
+    if (target.isNotEmpty) {
+      for (final account in _accounts) {
+        if (account.name.toLowerCase() == target.toLowerCase()) {
+          return account;
+        }
+      }
+    }
+
+    if (_accounts.isNotEmpty && target.isEmpty) {
+      return _accounts.first;
+    }
+
+    final account = AccountModel(
+      id: uuid.v4(),
+      name: target.isEmpty ? 'Imported Account' : target,
+      balance: 0,
+      color: 0xFF6AA5FF,
+      icon: 'bank',
+      createdAt: DateTime.now(),
+    );
+    await _db.insertAccount(account);
+    _accounts.add(account);
+    return account;
+  }
+
+  Future<CategoryModel?> _categoryForImport(
+    String name,
+    String type,
+    Uuid uuid,
+  ) async {
+    final target = name.trim();
+    for (final category in _categories) {
+      final display = categoryDisplayName(category);
+      if ((category.name.toLowerCase() == target.toLowerCase() ||
+              display.toLowerCase() == target.toLowerCase()) &&
+          (category.type == type || category.type == 'both')) {
+        return category;
+      }
+    }
+
+    final fallbackName = target.isEmpty
+        ? (type == 'income' ? 'Imported Income' : 'Imported Expense')
+        : target.split('/').last.trim();
+    CategoryModel? parent;
+    if (target.contains('/')) {
+      final parentName = target.split('/').first.trim();
+      try {
+        parent = _categories.firstWhere(
+          (category) => category.name.toLowerCase() == parentName.toLowerCase(),
+        );
+      } catch (_) {
+        parent = null;
+      }
+    }
+
+    final category = CategoryModel(
+      id: uuid.v4(),
+      name: fallbackName,
+      icon: type == 'income' ? 'cash' : 'box',
+      color: type == 'income' ? 0xFF3EE184 : 0xFFFFD95A,
+      type: type,
+      parentCategoryId: parent?.id,
+    );
+    await _db.insertCategory(category);
+    _categories.add(category);
+    return category;
+  }
+
+  Future<List<TransactionSplitModel>> _splitsForImport(
+    String raw,
+    String type,
+    Uuid uuid,
+  ) async {
+    if (raw.trim().isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      final splits = <TransactionSplitModel>[];
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final categoryName = item['category']?.toString() ?? '';
+        final amount = item['amount'] is num
+            ? (item['amount'] as num).toDouble()
+            : double.tryParse(item['amount']?.toString() ?? '');
+        if (amount == null || amount <= 0) continue;
+        final category = await _categoryForImport(categoryName, type, uuid);
+        if (category == null) continue;
+        splits.add(
+          TransactionSplitModel(
+            id: uuid.v4(),
+            transactionId: '',
+            categoryId: category.id,
+            amount: amount,
+          ),
+        );
+      }
+      return splits;
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Get current database file path
