@@ -6,6 +6,8 @@ import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
+import '../widgets/animated_amount.dart';
+import '../widgets/pressable_card.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -75,6 +77,10 @@ class _OverviewTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
       children: [
         _MetricGrid(provider: provider),
+        const SizedBox(height: 14),
+        _Rule503020Card(provider: provider),
+        const SizedBox(height: 14),
+        _EmergencyRunwayCard(provider: provider),
         const SizedBox(height: 14),
         _Panel(
           child: Column(
@@ -303,9 +309,24 @@ class _CategoriesTab extends StatelessWidget {
                               fontSize: 12,
                             ),
                             badgeWidget: isTouched
-                                ? Text(
-                                    d['icon'] as String,
-                                    style: const TextStyle(fontSize: 18),
+                                ? Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: Color(d['color'] as int),
+                                      shape: BoxShape.circle,
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black54,
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      EmojiToIcon.getIcon(d['icon'] as String),
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : null,
                             badgePositionPercentageOffset: 1.25,
@@ -368,7 +389,7 @@ class _HealthTab extends StatelessWidget {
         : 'Budget usage is healthy this month.';
 
     final savingsStatus = provider.savingsRate >= 20
-        ? 'Savings rate is strong.'
+        ? 'Savings rate is strong (${provider.savingsRate.toStringAsFixed(0)}%).'
         : provider.savingsRate >= 0
         ? 'Savings are positive, but there is room to improve.'
         : 'Expenses are higher than income this month.';
@@ -378,9 +399,17 @@ class _HealthTab extends StatelessWidget {
       children: [
         _HealthScore(provider: provider),
         const SizedBox(height: 14),
+        _PillarBreakdownCard(provider: provider),
+        if (provider.smartFinancialInsights.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _SmartInsightsList(insights: provider.smartFinancialInsights),
+        ],
+        const SizedBox(height: 14),
+        const _SectionTitle('Actionable Recommendations'),
+        const SizedBox(height: 10),
         _Recommendation(
           icon: Icons.savings_rounded,
-          title: 'Savings',
+          title: 'Savings Pace',
           body: savingsStatus,
           color: provider.savingsRate >= 0
               ? AppTheme.incomeColor
@@ -388,7 +417,7 @@ class _HealthTab extends StatelessWidget {
         ),
         _Recommendation(
           icon: Icons.donut_large_rounded,
-          title: 'Budgets',
+          title: 'Budget Discipline',
           body: budgetStatus,
           color: provider.overBudgetCount > 0
               ? AppTheme.expenseColor
@@ -396,17 +425,17 @@ class _HealthTab extends StatelessWidget {
         ),
         _Recommendation(
           icon: Icons.calendar_month_rounded,
-          title: 'Daily pace',
+          title: 'Emergency Cushion',
           body:
-              'Average daily expense is ${Formatters.compact(provider.averageDailyExpense)}; projected month end is ${Formatters.compact(provider.projectedMonthlyExpense)}.',
-          color: const Color(0xFF21C7A8),
+              'Current liquid funds cover ${provider.emergencyFundMonths.toStringAsFixed(1)} months of living expenses (${provider.emergencyRunwayStatus}).',
+          color: const Color(0xFF38BDF8),
         ),
         _Recommendation(
           icon: Icons.account_balance_rounded,
-          title: 'Net worth',
+          title: 'Net Worth Standing',
           body:
               'Assets minus loans currently stands at ${Formatters.currency(provider.netWorth)}.',
-          color: const Color(0xFFFFB020),
+          color: const Color(0xFFFFB800),
         ),
       ],
     );
@@ -419,52 +448,79 @@ class _HealthScore extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final savingsPoints =
-        ((provider.savingsRate.clamp(0, 30).toDouble() / 30) * 40);
-    final budgetPoints = provider.totalBudget == 0
-        ? 15
-        : ((1 - provider.budgetUsage).clamp(0, 1).toDouble() * 35);
-    final debtPoints = provider.totalLoanOutstanding <= 0
-        ? 25
-        : ((provider.netWorth > 0 ? .7 : .25) * 25);
-    final score = (savingsPoints + budgetPoints + debtPoints).round();
-    final color = score >= 75
+    final score = provider.calculatedHealthScore;
+    final color = score >= 80
         ? AppTheme.incomeColor
-        : score >= 50
-        ? const Color(0xFFFFB020)
+        : score >= 60
+        ? const Color(0xFF38BDF8)
+        : score >= 40
+        ? const Color(0xFFFFB800)
         : AppTheme.expenseColor;
 
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle('Financial health score'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const _SectionTitle('Financial Health Score'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  score >= 80
+                      ? 'Exceptional'
+                      : score >= 60
+                      ? 'Strong'
+                      : score >= 40
+                      ? 'Moderate'
+                      : 'Needs Attention',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 18),
           Row(
             children: [
               SizedBox(
-                width: 112,
-                height: 112,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: score / 100,
-                      strokeWidth: 11,
-                      backgroundColor: Colors.white10,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
-                    Center(
-                      child: Text(
-                        '$score',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
+                width: 110,
+                height: 110,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: score / 100),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CircularProgressIndicator(
+                          value: value,
+                          strokeWidth: 10,
+                          backgroundColor: Colors.white10,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
                         ),
-                      ),
-                    ),
-                  ],
+                        Center(
+                          child: Text(
+                            '$score',
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 18),
@@ -473,11 +529,13 @@ class _HealthScore extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      score >= 75
-                          ? 'Strong position'
-                          : score >= 50
-                          ? 'Stable, watch trends'
-                          : 'Needs attention',
+                      score >= 80
+                          ? 'Exceptional Stability'
+                          : score >= 60
+                          ? 'Strong Position'
+                          : score >= 40
+                          ? 'Moderate, Watch Trends'
+                          : 'Action Needed',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -486,9 +544,9 @@ class _HealthScore extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Based on savings rate, budget usage, and debt pressure.',
+                      'Evaluated across 4 key pillars: Savings Rate, Budget Discipline, Emergency Runway, and Cost Balance.',
                       style: TextStyle(
-                        color: Colors.white.withAlpha(125),
+                        color: Colors.white.withAlpha(140),
                         fontSize: 12,
                         height: 1.35,
                       ),
@@ -777,8 +835,9 @@ class _AmountColumn extends StatelessWidget {
           label,
           style: const TextStyle(color: Colors.white38, fontSize: 10),
         ),
-        Text(
-          Formatters.compact(amount),
+        AnimatedAmount(
+          value: amount,
+          mode: AmountDisplayMode.compact,
           style: TextStyle(
             color: color,
             fontSize: 12,
@@ -871,6 +930,536 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _Rule503020Card extends StatelessWidget {
+  final FinanceProvider provider;
+  const _Rule503020Card({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final needs = provider.needsSpending;
+    final wants = provider.wantsSpending;
+    final savings = provider.monthlySavings > 0 ? provider.monthlySavings : 0.0;
+    final total = needs + wants + savings;
+
+    final needsPct = total > 0 ? (needs / total) * 100 : 0.0;
+    final wantsPct = total > 0 ? (wants / total) * 100 : 0.0;
+    final savingsPct = total > 0 ? (savings / total) * 100 : 0.0;
+
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const _SectionTitle('50/30/20 Rule Analysis'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Golden Rule',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Target: 50% Needs, 30% Wants, 20% Savings',
+            style: TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 10,
+              child: total <= 0
+                  ? Container(color: Colors.white12)
+                  : Row(
+                      children: [
+                        if (needsPct > 0)
+                          Expanded(
+                            flex: (needsPct * 10).round().clamp(1, 1000),
+                            child: Container(color: const Color(0xFF38BDF8)),
+                          ),
+                        if (wantsPct > 0)
+                          Expanded(
+                            flex: (wantsPct * 10).round().clamp(1, 1000),
+                            child: Container(color: const Color(0xFFFFB800)),
+                          ),
+                        if (savingsPct > 0)
+                          Expanded(
+                            flex: (savingsPct * 10).round().clamp(1, 1000),
+                            child: Container(color: AppTheme.incomeColor),
+                          ),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _AllocationRow(
+            label: 'Needs (Essentials)',
+            target: 'Target 50%',
+            actualPct: needsPct,
+            amount: needs,
+            color: const Color(0xFF38BDF8),
+          ),
+          const SizedBox(height: 8),
+          _AllocationRow(
+            label: 'Wants (Lifestyle)',
+            target: 'Target 30%',
+            actualPct: wantsPct,
+            amount: wants,
+            color: const Color(0xFFFFB800),
+          ),
+          const SizedBox(height: 8),
+          _AllocationRow(
+            label: 'Savings & Growth',
+            target: 'Target 20%',
+            actualPct: savingsPct,
+            amount: savings,
+            color: AppTheme.incomeColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AllocationRow extends StatelessWidget {
+  final String label;
+  final String target;
+  final double actualPct;
+  final double amount;
+  final Color color;
+
+  const _AllocationRow({
+    required this.label,
+    required this.target,
+    required this.actualPct,
+    required this.amount,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                target,
+                style: const TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${actualPct.toStringAsFixed(1)}%',
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              Formatters.compact(amount),
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _EmergencyRunwayCard extends StatelessWidget {
+  final FinanceProvider provider;
+  const _EmergencyRunwayCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final runway = provider.emergencyFundMonths;
+    final status = provider.emergencyRunwayStatus;
+    final burn = provider.averageHistoricalMonthlyExpense;
+
+    final color = runway >= 6.0
+        ? AppTheme.incomeColor
+        : runway >= 3.0
+        ? const Color(0xFF38BDF8)
+        : runway >= 1.0
+        ? const Color(0xFFFFB800)
+        : AppTheme.expenseColor;
+
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _SectionTitle('Emergency Runway'),
+                    const SizedBox(height: 4),
+                    Text(
+                      status,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(30),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: color.withAlpha(60)),
+                ),
+                child: Text(
+                  '${runway.toStringAsFixed(1)} mo',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: (runway / 6.0).clamp(0.0, 1.0),
+              minHeight: 7,
+              backgroundColor: Colors.white10,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Liquid Cash: ${Formatters.compact(provider.totalBalance)}',
+                  style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Monthly Burn: ${Formatters.compact(burn)}',
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PillarBreakdownCard extends StatelessWidget {
+  final FinanceProvider provider;
+  const _PillarBreakdownCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final savingsScore = (provider.savingsRate.clamp(0.0, 30.0) / 30.0) * 30.0;
+    double budgetScore = 20.0;
+    if (provider.totalBudget > 0) {
+      budgetScore = (1.0 - provider.budgetUsage).clamp(0.0, 1.0) * 30.0;
+      if (provider.overBudgetCount > 0) {
+        budgetScore = (budgetScore - (provider.overBudgetCount * 5.0)).clamp(
+          0.0,
+          30.0,
+        );
+      }
+    }
+    double safetyScore = provider.emergencyFundMonths >= 6.0
+        ? 15.0
+        : provider.emergencyFundMonths >= 3.0
+        ? 12.0
+        : provider.emergencyFundMonths >= 1.0
+        ? 8.0
+        : 3.0;
+    if (provider.totalLoanOutstanding <= 0) {
+      safetyScore += 10.0;
+    } else if (provider.netWorth > provider.totalLoanOutstanding * 1.5) {
+      safetyScore += 7.0;
+    } else if (provider.netWorth > 0) {
+      safetyScore += 4.0;
+    }
+    double livingScore = 10.0;
+    if (provider.monthlyExpense > 0) {
+      if (provider.wantsExpensePercentage <= 35.0) {
+        livingScore = 15.0;
+      } else if (provider.wantsExpensePercentage <= 50.0) {
+        livingScore = 10.0;
+      } else {
+        livingScore = 5.0;
+      }
+    }
+
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle('4-Pillar Health Breakdown'),
+          const SizedBox(height: 14),
+          _PillarRow(
+            label: 'Savings Rate Score',
+            score: savingsScore.round(),
+            maxScore: 30,
+            metric: '${provider.savingsRate.toStringAsFixed(0)}% (Goal: >20%)',
+            color: AppTheme.incomeColor,
+          ),
+          const SizedBox(height: 12),
+          _PillarRow(
+            label: 'Budget Discipline',
+            score: budgetScore.round(),
+            maxScore: 30,
+            metric: provider.totalBudget > 0
+                ? '${(provider.budgetUsage * 100).toStringAsFixed(0)}% used'
+                : 'No budget set',
+            color: const Color(0xFF635BFF),
+          ),
+          const SizedBox(height: 12),
+          _PillarRow(
+            label: 'Emergency & Debt Safety',
+            score: safetyScore.round(),
+            maxScore: 25,
+            metric:
+                '${provider.emergencyFundMonths.toStringAsFixed(1)} mo runway',
+            color: const Color(0xFF38BDF8),
+          ),
+          const SizedBox(height: 12),
+          _PillarRow(
+            label: 'Living Cost Balance',
+            score: livingScore.round(),
+            maxScore: 15,
+            metric:
+                '${provider.wantsExpensePercentage.toStringAsFixed(0)}% discretionary',
+            color: const Color(0xFFFFB800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PillarRow extends StatelessWidget {
+  final String label;
+  final int score;
+  final int maxScore;
+  final String metric;
+  final Color color;
+
+  const _PillarRow({
+    required this.label,
+    required this.score,
+    required this.maxScore,
+    required this.metric,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (score / maxScore).clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$score / $maxScore pts',
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 6,
+            backgroundColor: color.withAlpha(35),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          metric,
+          style: const TextStyle(
+            color: Colors.white38,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _SmartInsightsList extends StatelessWidget {
+  final List<FinancialInsight> insights;
+  const _SmartInsightsList({required this.insights});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('Smart Financial Insights'),
+        const SizedBox(height: 10),
+        ...insights.map((insight) {
+          return PressableCard(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: insight.color.withAlpha(50)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: insight.color.withAlpha(35),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        EmojiToIcon.getIcon(insight.icon),
+                        color: insight.color,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                insight.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: insight.color.withAlpha(30),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                insight.badge,
+                                style: TextStyle(
+                                  color: insight.color,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          insight.description,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 }

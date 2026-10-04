@@ -13,6 +13,7 @@ import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
+import '../widgets/category_picker_sheet.dart';
 
 class ReceiptReviewScreen extends StatefulWidget {
   final ReceiptScanResult result;
@@ -84,6 +85,10 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FinanceProvider>();
+    if (_selectedAccount == null && provider.accounts.isNotEmpty) {
+      _selectedAccount = provider.accounts.first;
+    }
+    _selectedCategory ??= provider.guessReceiptCategory(_merchantCtrl.text);
     final amount = double.tryParse(_amountCtrl.text);
     final duplicates = amount == null
         ? <TransactionModel>[]
@@ -157,20 +162,15 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
               const SizedBox(height: 12),
               _DateTile(date: _selectedDate, onTap: _pickDate),
               const SizedBox(height: 12),
-              _CategoryDropdown(
+              _CategoryTile(
                 provider: provider,
-                selected: _selectedCategory,
-                onChanged: (category) {
-                  setState(() => _selectedCategory = category);
-                },
+                category: _selectedCategory,
+                onTap: () => _pickCategory(provider),
               ),
               const SizedBox(height: 12),
-              _AccountDropdown(
-                accounts: provider.accounts,
-                selected: _selectedAccount,
-                onChanged: (account) {
-                  setState(() => _selectedAccount = account);
-                },
+              _AccountTile(
+                account: _selectedAccount,
+                onTap: () => _pickAccount(provider.accounts),
               ),
               const SizedBox(height: 12),
               _PaymentMethodPicker(
@@ -271,6 +271,44 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
           _selectedDate.minute,
         );
       });
+    }
+  }
+
+  Future<void> _pickCategory(FinanceProvider provider) async {
+    final categories = provider.getCategoriesForType('expense');
+    final result = await showModalBottomSheet<CategoryModel>(
+      context: context,
+      backgroundColor: AppTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) =>
+          CategoryPickerSheet(type: 'expense', categories: categories),
+    );
+    if (result != null) {
+      setState(() => _selectedCategory = result);
+    }
+  }
+
+  Future<void> _pickAccount(List<AccountModel> accounts) async {
+    final result = await showModalBottomSheet<AccountModel>(
+      context: context,
+      backgroundColor: AppTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ItemPickerSheet<AccountModel>(
+        title: 'Select Account',
+        items: accounts,
+        builder: (acc) => PickerItem(
+          icon: acc.icon,
+          label: acc.name,
+          color: Color(acc.color),
+        ),
+      ),
+    );
+    if (result != null) {
+      setState(() => _selectedAccount = result);
     }
   }
 
@@ -423,13 +461,35 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
 
   String _guessPaymentMethod(String text) {
     final lower = text.toLowerCase();
-    if (lower.contains('upi')) return TransactionPaymentMethod.upi;
+    if (lower.contains('upi') ||
+        lower.contains('gpay') ||
+        lower.contains('google pay') ||
+        lower.contains('phonepe') ||
+        lower.contains('paytm') ||
+        lower.contains('bhim') ||
+        lower.contains('vpa') ||
+        lower.contains('@ok') ||
+        lower.contains('@ybl') ||
+        lower.contains('@icici')) {
+      return TransactionPaymentMethod.upi;
+    }
     if (lower.contains('card') ||
         lower.contains('visa') ||
-        lower.contains('mastercard')) {
+        lower.contains('mastercard') ||
+        lower.contains('rupay') ||
+        lower.contains('amex') ||
+        lower.contains('credit') ||
+        lower.contains('debit') ||
+        lower.contains('pos txn')) {
       return TransactionPaymentMethod.card;
     }
-    if (lower.contains('bank')) return TransactionPaymentMethod.bank;
+    if (lower.contains('bank') ||
+        lower.contains('neft') ||
+        lower.contains('rtgs') ||
+        lower.contains('imps') ||
+        lower.contains('net banking')) {
+      return TransactionPaymentMethod.bank;
+    }
     return TransactionPaymentMethod.cash;
   }
 }
@@ -443,15 +503,40 @@ class _ReceiptImagePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final file = File(path);
+    final exists = path.isNotEmpty && file.existsSync();
+
     return Container(
-      height: 240,
+      height: 220,
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white10),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.file(File(path), fit: BoxFit.contain),
+      child: exists
+          ? Image.file(
+              file,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+            )
+          : _buildPlaceholder(),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_long_rounded, color: Colors.white24, size: 44),
+          SizedBox(height: 8),
+          Text(
+            'Receipt preview unavailable',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -522,93 +607,135 @@ class _DateTile extends StatelessWidget {
   }
 }
 
-class _CategoryDropdown extends StatelessWidget {
+class _CategoryTile extends StatelessWidget {
   final FinanceProvider provider;
-  final CategoryModel? selected;
-  final ValueChanged<CategoryModel?> onChanged;
+  final CategoryModel? category;
+  final VoidCallback onTap;
 
-  const _CategoryDropdown({
+  const _CategoryTile({
     required this.provider,
-    required this.selected,
-    required this.onChanged,
+    required this.category,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final categories = provider.getCategoriesForType('expense');
-    return DropdownButtonFormField<String>(
-      initialValue: selected?.id,
-      dropdownColor: AppTheme.cardColor,
-      decoration: const InputDecoration(
-        labelText: 'Category',
-        prefixIcon: Icon(Icons.category_rounded, color: Colors.white38),
-      ),
-      items: categories.map((category) {
-        return DropdownMenuItem(
-          value: category.id,
-          child: Row(
-            children: [
-              Icon(
-                EmojiToIcon.getIcon(category.icon),
-                color: Color(category.color),
-                size: 18,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          children: [
+            category != null
+                ? Icon(
+                    EmojiToIcon.getIcon(category!.icon),
+                    color: Color(category!.color),
+                    size: 20,
+                  )
+                : const Icon(
+                    Icons.category_rounded,
+                    color: Colors.white38,
+                    size: 20,
+                  ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Category',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    category != null
+                        ? provider.categoryDisplayName(category)
+                        : 'Select category',
+                    style: TextStyle(
+                      color: category != null ? Colors.white : Colors.white38,
+                      fontSize: 15,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Flexible(child: Text(provider.categoryDisplayName(category))),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (id) {
-        onChanged(id == null ? null : provider.getCategoryById(id));
-      },
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white38,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _AccountDropdown extends StatelessWidget {
-  final List<AccountModel> accounts;
-  final AccountModel? selected;
-  final ValueChanged<AccountModel?> onChanged;
+class _AccountTile extends StatelessWidget {
+  final AccountModel? account;
+  final VoidCallback onTap;
 
-  const _AccountDropdown({
-    required this.accounts,
-    required this.selected,
-    required this.onChanged,
-  });
+  const _AccountTile({required this.account, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: selected?.id,
-      dropdownColor: AppTheme.cardColor,
-      decoration: const InputDecoration(
-        labelText: 'Account',
-        prefixIcon: Icon(
-          Icons.account_balance_wallet_rounded,
-          color: Colors.white38,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          children: [
+            account != null
+                ? Icon(
+                    EmojiToIcon.getIcon(account!.icon),
+                    color: Color(account!.color),
+                    size: 20,
+                  )
+                : const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Colors.white38,
+                    size: 20,
+                  ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Account',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    account != null ? account!.name : 'Select account',
+                    style: TextStyle(
+                      color: account != null ? Colors.white : Colors.white38,
+                      fontSize: 15,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white38,
+              size: 20,
+            ),
+          ],
         ),
       ),
-      items: accounts.map((account) {
-        return DropdownMenuItem(
-          value: account.id,
-          child: Row(
-            children: [
-              Icon(
-                EmojiToIcon.getIcon(account.icon),
-                color: Color(account.color),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Flexible(child: Text(account.name)),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (id) {
-        final matches = accounts.where((account) => account.id == id);
-        onChanged(matches.isEmpty ? null : matches.first);
-      },
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
 import '../models/transaction_split_model.dart';
@@ -17,6 +18,22 @@ import '../utils/formatters.dart';
 
 void _logFinance(String message) {
   if (kDebugMode) debugPrint(message);
+}
+
+class FinancialInsight {
+  final String title;
+  final String description;
+  final String icon;
+  final Color color;
+  final String badge;
+
+  const FinancialInsight({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.badge,
+  });
 }
 
 class FinanceProvider extends ChangeNotifier {
@@ -136,8 +153,293 @@ class FinanceProvider extends ChangeNotifier {
         (current['income'] as double) - (current['expense'] as double);
     final previousSavings =
         (previous['income'] as double) - (previous['expense'] as double);
-    if (previousSavings == 0) return currentSavings == 0 ? 0 : 100;
-    return ((currentSavings - previousSavings) / previousSavings.abs()) * 100;
+    if (previousSavings == 0) {
+      if (currentSavings > 0) return 100;
+      if (currentSavings < 0) return -100;
+      return 0;
+    }
+    final momentum =
+        ((currentSavings - previousSavings) / previousSavings.abs()) * 100;
+    return momentum.clamp(-999.0, 999.0);
+  }
+
+  // ─── 50/30/20 & ADVANCED FINANCIAL ANALYSIS ─────────────────────────────
+
+  /// Needs (Essentials): Groceries, Bills & Utilities, Health, Transport/Fuel, Education, Rent
+  double get needsSpending {
+    final currentExpenses = currentMonthTransactions.where(
+      (t) => t.type == 'expense',
+    );
+    double sum = 0.0;
+    for (final tx in currentExpenses) {
+      final cat = getCategoryById(tx.categoryId);
+      if (_isNeedCategory(cat)) {
+        sum += tx.amount;
+      }
+    }
+    return sum;
+  }
+
+  /// Wants (Discretionary): Dining out, Shopping, Entertainment, Travel, Beauty, Leisure
+  double get wantsSpending {
+    final currentExpenses = currentMonthTransactions.where(
+      (t) => t.type == 'expense',
+    );
+    double sum = 0.0;
+    for (final tx in currentExpenses) {
+      final cat = getCategoryById(tx.categoryId);
+      if (!_isNeedCategory(cat)) {
+        sum += tx.amount;
+      }
+    }
+    return sum;
+  }
+
+  bool _isNeedCategory(CategoryModel? category) {
+    if (category == null) return false;
+    final name = category.name.toLowerCase();
+    final icon = category.icon.toLowerCase();
+    return name.contains('grocer') ||
+        name.contains('bill') ||
+        name.contains('utilit') ||
+        name.contains('health') ||
+        name.contains('medic') ||
+        name.contains('transport') ||
+        name.contains('fuel') ||
+        name.contains('petrol') ||
+        name.contains('edu') ||
+        name.contains('rent') ||
+        name.contains('home') ||
+        icon == 'utilities' ||
+        icon == 'medical' ||
+        icon == 'fuel' ||
+        icon == 'books' ||
+        icon == 'home' ||
+        icon == 'car';
+  }
+
+  /// Needs share of total monthly expense (percentage)
+  double get needsExpensePercentage =>
+      monthlyExpense > 0 ? (needsSpending / monthlyExpense) * 100 : 0.0;
+
+  /// Wants share of total monthly expense (percentage)
+  double get wantsExpensePercentage =>
+      monthlyExpense > 0 ? (wantsSpending / monthlyExpense) * 100 : 0.0;
+
+  /// Average monthly expense across historical data (or current if none)
+  double get averageHistoricalMonthlyExpense {
+    if (_last6Months.isEmpty) return monthlyExpense;
+    final expenses = _last6Months
+        .map((m) => m['expense'] as double)
+        .where((e) => e > 0)
+        .toList();
+    if (expenses.isEmpty) return monthlyExpense;
+    return expenses.fold<double>(0.0, (s, e) => s + e) / expenses.length;
+  }
+
+  /// Emergency Fund Runway (Months of survival with liquid balance)
+  double get emergencyFundMonths {
+    final burn = averageHistoricalMonthlyExpense > 0
+        ? averageHistoricalMonthlyExpense
+        : monthlyExpense;
+    if (burn <= 0) return totalBalance > 0 ? 12.0 : 0.0;
+    return (totalBalance / burn).clamp(0.0, 99.9);
+  }
+
+  /// Runway Status Label
+  String get emergencyRunwayStatus {
+    final months = emergencyFundMonths;
+    if (months >= 6.0) return 'Exceptional (6+ months safety buffer)';
+    if (months >= 3.0) return 'Healthy (3-6 months buffer)';
+    if (months >= 1.0) return 'Moderate (1-3 months buffer)';
+    return 'Vulnerable (< 1 month runway)';
+  }
+
+  /// Remaining days in selected month
+  int get remainingDaysInMonth {
+    final now = DateTime.now();
+    if (_selectedMonth.year != now.year || _selectedMonth.month != now.month) {
+      return 0;
+    }
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    return (daysInMonth - now.day + 1).clamp(1, 31);
+  }
+
+  /// Remaining safe daily spending limit based on monthly budget or income
+  double get remainingDailyBudgetLimit {
+    final remainingDays = remainingDaysInMonth;
+    if (remainingDays <= 0) return 0.0;
+    if (totalBudget > 0) {
+      final remaining = (totalBudget - totalBudgetSpent).clamp(
+        0.0,
+        double.infinity,
+      );
+      return remaining / remainingDays;
+    }
+    if (monthlyIncome > 0) {
+      final remaining = (monthlyIncome - monthlyExpense).clamp(
+        0.0,
+        double.infinity,
+      );
+      return remaining / remainingDays;
+    }
+    return 0.0;
+  }
+
+  /// Multi-pillar Financial Health Score (0-100)
+  int get calculatedHealthScore {
+    // Pillar 1: Savings Rate (max 30 pts)
+    final savingsScore = (savingsRate.clamp(0.0, 30.0) / 30.0) * 30.0;
+
+    // Pillar 2: Budget Discipline (max 30 pts)
+    double budgetScore = 20.0;
+    if (totalBudget > 0) {
+      budgetScore = (1.0 - budgetUsage).clamp(0.0, 1.0) * 30.0;
+      if (overBudgetCount > 0) {
+        budgetScore = (budgetScore - (overBudgetCount * 5.0)).clamp(0.0, 30.0);
+      }
+    }
+
+    // Pillar 3: Emergency Runway & Debt Safety (max 25 pts)
+    double safetyScore = 5.0;
+    final runway = emergencyFundMonths;
+    if (runway >= 6.0) {
+      safetyScore = 15.0;
+    } else if (runway >= 3.0) {
+      safetyScore = 12.0;
+    } else if (runway >= 1.0) {
+      safetyScore = 8.0;
+    } else {
+      safetyScore = 3.0;
+    }
+
+    if (totalLoanOutstanding <= 0) {
+      safetyScore += 10.0;
+    } else if (netWorth > totalLoanOutstanding * 1.5) {
+      safetyScore += 7.0;
+    } else if (netWorth > 0) {
+      safetyScore += 4.0;
+    }
+
+    // Pillar 4: Needs vs Wants Balance (max 15 pts)
+    double livingScore = 10.0;
+    if (monthlyExpense > 0) {
+      if (wantsExpensePercentage <= 35.0) {
+        livingScore = 15.0;
+      } else if (wantsExpensePercentage <= 50.0) {
+        livingScore = 10.0;
+      } else {
+        livingScore = 5.0;
+      }
+    }
+
+    return (savingsScore + budgetScore + safetyScore + livingScore)
+        .round()
+        .clamp(0, 100);
+  }
+
+  /// Dynamic Smart Financial Insights
+  List<FinancialInsight> get smartFinancialInsights {
+    final insights = <FinancialInsight>[];
+
+    // Insight 1: Savings Rate / Deficit
+    if (monthlyIncome > 0) {
+      if (savingsRate >= 25.0) {
+        insights.add(
+          FinancialInsight(
+            title: 'Strong Wealth Builder',
+            description:
+                'You\'re saving ${savingsRate.toStringAsFixed(0)}% of your income this month. You\'re ahead of the 20% savings rule!',
+            icon: 'trending_up',
+            color: const Color(0xFF00E676),
+            badge: 'Top Tier',
+          ),
+        );
+      } else if (savingsRate >= 10.0) {
+        insights.add(
+          FinancialInsight(
+            title: 'Positive Savings',
+            description:
+                'You\'ve saved ${Formatters.currency(monthlySavings)} (${savingsRate.toStringAsFixed(0)}%). Consider bumping it to 20% by curbing discretionary wants.',
+            icon: 'trending_up',
+            color: const Color(0xFF38BDF8),
+            badge: 'Good Pace',
+          ),
+        );
+      } else if (monthlySavings < 0) {
+        insights.add(
+          FinancialInsight(
+            title: 'Spending Exceeds Income',
+            description:
+                'Outflow exceeds income by ${Formatters.currency(monthlySavings.abs())} this month. Review non-essential categories to stop cash bleed.',
+            icon: 'warning',
+            color: const Color(0xFFFF5252),
+            badge: 'Action Needed',
+          ),
+        );
+      }
+    }
+
+    // Insight 2: Top Category Concentration
+    if (topSpendingCategory != null && monthlyExpense > 0) {
+      final topTotal = (topSpendingCategory!['total'] as num).toDouble();
+      final share = (topTotal / monthlyExpense) * 100;
+      final topName = topSpendingCategory!['name'] as String;
+      if (share >= 30.0) {
+        insights.add(
+          FinancialInsight(
+            title: '$topName Concentration',
+            description:
+                '$topName accounts for ${share.toStringAsFixed(0)}% of total monthly spending (${Formatters.currency(topTotal)}).',
+            icon: topSpendingCategory!['icon'] as String? ?? 'chart',
+            color: const Color(0xFFFFB800),
+            badge: 'High Share',
+          ),
+        );
+      }
+    }
+
+    // Insight 3: Emergency Runway
+    final runway = emergencyFundMonths;
+    if (runway >= 3.0) {
+      insights.add(
+        FinancialInsight(
+          title: 'Emergency Cushion',
+          description:
+              'Your cash reserves can sustain your lifestyle for ${runway.toStringAsFixed(1)} months without any new income.',
+          icon: 'bank',
+          color: const Color(0xFF635BFF),
+          badge: 'Protected',
+        ),
+      );
+    } else if (runway > 0 && runway < 2.0) {
+      insights.add(
+        FinancialInsight(
+          title: 'Build Emergency Buffer',
+          description:
+              'Liquid funds only cover ${runway.toStringAsFixed(1)} months of expenses. Recommended baseline is 3 to 6 months.',
+          icon: 'warning',
+          color: const Color(0xFFFFB800),
+          badge: 'Low Buffer',
+        ),
+      );
+    }
+
+    // Insight 4: Daily Budget Pace
+    if (remainingDaysInMonth > 0 && remainingDailyBudgetLimit > 0) {
+      insights.add(
+        FinancialInsight(
+          title: 'Remaining Daily Pace',
+          description:
+              'To finish the month on target, your recommended safe spending limit is ${Formatters.currency(remainingDailyBudgetLimit)} / day for the remaining $remainingDaysInMonth days.',
+          icon: 'target',
+          color: const Color(0xFF00E676),
+          badge: 'Daily Guide',
+        ),
+      );
+    }
+
+    return insights;
   }
 
   List<Map<String, dynamic>> get accountDistribution {

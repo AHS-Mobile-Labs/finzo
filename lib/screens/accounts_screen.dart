@@ -6,6 +6,8 @@ import '../providers/finance_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/emoji_to_icon.dart';
 import '../utils/formatters.dart';
+import '../widgets/animated_amount.dart';
+import '../widgets/pressable_card.dart';
 
 class AccountsScreen extends StatelessWidget {
   const AccountsScreen({super.key});
@@ -28,34 +30,88 @@ class AccountsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Total balance
+          // Total balance card
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white10),
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.cardColor,
+                  AppTheme.primaryColor.withAlpha(25),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppTheme.borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Net Worth',
-                  style: TextStyle(color: Colors.white54, fontSize: 13),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Balance',
+                      style: TextStyle(
+                        color: AppTheme.secondaryTextColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (provider.investments.isNotEmpty ||
+                        provider.loans.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withAlpha(35),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.primaryColor.withAlpha(60),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Net Worth: ',
+                              style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 11,
+                              ),
+                            ),
+                            Text(
+                              Formatters.compact(provider.netWorth),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  Formatters.currency(provider.totalBalance),
+                AnimatedAmount(
+                  value: provider.totalBalance,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
-                  '${accounts.length} account${accounts.length != 1 ? 's' : ''}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  '${accounts.length} account${accounts.length != 1 ? 's' : ''} connected',
+                  style: const TextStyle(
+                    color: AppTheme.mutedTextColor,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -170,7 +226,7 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Color(account.color);
 
-    return GestureDetector(
+    return PressableCard(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -220,8 +276,8 @@ class _AccountCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  Formatters.currency(account.balance),
+                AnimatedAmount(
+                  value: account.balance,
                   style: TextStyle(
                     color: account.balance >= 0
                         ? AppTheme.incomeColor
